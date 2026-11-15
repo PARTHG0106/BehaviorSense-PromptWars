@@ -1,0 +1,291 @@
+# BehaviorSense AI — Unified ADL Taxonomy v1.1
+#
+# 22 classes chosen so that every class is (a) recognisable from 2D pose + light object
+# context, and (b) meaningful to the behavioural layer. A class that no downstream
+# feature consumes is dead weight and was removed.
+#
+# `behaviour_role` declares what each class feeds in Agent 3. This is the contract that
+# stops the taxonomy drifting away from the reasoning layer.
+#
+# v1.1 appends ids 20-21 and renumbers nothing. See the note above id 20 for why appending
+# is the only affordable shape for this change.
+
+version: "1.1"
+n_classes: 22
+n_classes_v10: 20        # what the currently-trained checkpoints and activity.py still use
+
+classes:
+  - id: 0
+    name: walking
+    group: mobility
+    behaviour_role: [mobility_index, room_transition]
+    notes: Primary mobility signal. Decline here is the strongest frailty proxy.
+  - id: 1
+    name: standing
+    group: mobility
+    behaviour_role: [posture_budget]
+  - id: 2
+    name: sitting
+    group: posture
+    behaviour_role: [posture_budget, sedentary_index]
+  - id: 3
+    name: lying_down
+    group: posture
+    behaviour_role: [sleep_proxy, inactivity]
+    notes: Disambiguated from `fallen` by onset velocity + location, not pose alone.
+  - id: 4
+    name: standing_up
+    group: transition
+    behaviour_role: [sit_to_stand_count, mobility_index]
+    notes: Sit-to-stand frequency/duration is a validated clinical frailty marker.
+  - id: 5
+    name: sitting_down
+    group: transition
+    behaviour_role: [sit_to_stand_count]
+  - id: 6
+    name: bending_reaching
+    group: mobility
+    behaviour_role: [flexibility_proxy]
+  - id: 7
+    name: falling
+    group: critical
+    behaviour_role: [emergency]
+    notes: The transient event. High recall priority.
+  - id: 8
+    name: fallen_on_ground
+    group: critical
+    behaviour_role: [emergency, inactivity]
+    notes: Post-fall state. Long dwell here = failure to recover = escalate.
+  - id: 9
+    name: eating
+    group: nutrition
+    behaviour_role: [meal_routine, nutrition_index]
+  - id: 10
+    name: drinking
+    group: nutrition
+    behaviour_role: [hydration_index]
+  - id: 11
+    name: cooking_food_prep
+    group: nutrition
+    behaviour_role: [meal_routine, iadl_index]
+  - id: 12
+    name: taking_medication
+    group: health
+    behaviour_role: [medication_adherence]
+    notes: REQUIRES object context. Pose alone cannot separate this from `drinking`.
+  - id: 13
+    name: watching_tv
+    group: leisure
+    behaviour_role: [sedentary_index, routine_anchor]
+  - id: 14
+    name: reading
+    group: leisure
+    behaviour_role: [cognitive_engagement]
+  - id: 15
+    name: using_phone
+    group: social
+    behaviour_role: [social_index]
+  - id: 16
+    name: cleaning_housework
+    group: iadl
+    behaviour_role: [iadl_index]
+    notes: IADL decline typically precedes ADL decline — early warning signal.
+  - id: 17
+    name: personal_hygiene
+    group: selfcare
+    behaviour_role: [selfcare_index]
+    notes: Coarse only. Bathroom cameras are excluded on ethical grounds.
+  - id: 18
+    name: interacting_with_person
+    group: social
+    behaviour_role: [social_index, visitor_frequency]
+    notes: Requires >=2 tracked persons. Social isolation is a mortality risk factor.
+  - id: 19
+    name: other_idle
+    group: null_class
+    behaviour_role: []
+    notes: Explicit reject class. Without it the model force-fits ambiguous windows.
+
+  # --- v1.1, APPENDED. Ids 0-19 above are frozen. -------------------------------------
+  #
+  # Appended rather than inserted, and nothing renumbered, because the shards store only
+  # the coarse label id and not the source class (`labels` int64 in every *.npz). A change
+  # that re-partitions 0-19 cannot be applied by remapping - the information needed to
+  # un-merge was discarded at extraction - so it would cost the ~6 h re-extraction. Adding
+  # ids at the end leaves every existing label value correct and every existing shard
+  # readable; only the head width changes, which a retrain was going to do anyway.
+  #
+  # `agents/activity.py` deliberately still declares N_CLASSES = 20 while the trained
+  # checkpoints are 20 wide. `data/toyota.assert_coarse_parity()` is what stops the two
+  # lists drifting; flip activity.py to 22 in the same commit that ships a 22-wide
+  # checkpoint, not before, or EnsembleClassifier stops loading best.pt and the live demo
+  # goes down for nothing.
+  - id: 20
+    name: using_device
+    group: leisure
+    behaviour_role: [cognitive_engagement, sedentary_index]
+    notes: >
+      Laptop and tablet. Exists because Toyota Smarthome spends 11.9% of its annotated
+      frames here (Use_laptop 6.7% + Use_tablet 5.2%), and the obvious map put all of it in
+      `other_idle`. A reject class trained on a real, distinct, high-frequency activity
+      stops rejecting and starts competing - which is a large part of why the Charades run
+      came out at macro-F1 0.128.
+  - id: 21
+    name: object_interaction
+    group: iadl
+    behaviour_role: [iadl_index]
+    notes: >
+      Purposeful handling of storage and surfaces: drawer, cupboard, fridge, putting things
+      on and taking them off a table. 5.6% of Toyota's annotated frames. Kept out of
+      `other_idle` for the same reason as id 20, and it earns a behaviour_role on its own
+      terms: instrumental-ADL decline precedes basic-ADL decline.
+
+# ---------------------------------------------------------------------------
+# SOURCE MAPPINGS
+# Unmapped source classes -> `other_idle` or dropped. `drop: true` means excluded
+# from training entirely (ambiguous or actively harmful to the label space).
+# ---------------------------------------------------------------------------
+
+mappings:
+
+  omnifall:
+    # OmniFall 16-class unified taxonomy -> ours
+    walk: walking
+    stand: standing
+    sit: sitting
+    lie: lying_down
+    stand_up: standing_up
+    sit_down: sitting_down
+    lie_down: lying_down
+    fall: falling
+    fallen: fallen_on_ground
+    sit_on_ground: fallen_on_ground
+    stand_from_ground: standing_up
+    other: other_idle
+
+  charades:
+    # Representative subset of the 157 classes. Full map generated by
+    # scripts/build_charades_map.py against Charades_v1_classes.txt.
+    c093_walking_through_a_doorway: walking
+    c151_walking_in_a_room: walking
+    c106_standing_up: standing_up
+    c107_sitting_down: sitting_down
+    c108_sitting_in_a_chair: sitting
+    c109_lying_on_a_bed: lying_down
+    c110_lying_on_the_floor: lying_down
+    c059_eating_a_sandwich: eating
+    c060_eating_food: eating
+    c061_drinking_from_a_cup: drinking
+    c062_drinking_from_a_bottle: drinking
+    c043_cooking_something: cooking_food_prep
+    c044_making_a_sandwich: cooking_food_prep
+    c045_preparing_food: cooking_food_prep
+    c072_taking_medicine: taking_medication
+    c078_watching_television: watching_tv
+    c081_reading_a_book: reading
+    c082_holding_a_book: reading
+    c088_talking_on_the_phone: using_phone
+    c089_holding_a_phone: using_phone
+    c024_cleaning_a_window: cleaning_housework
+    c025_washing_dishes: cleaning_housework
+    c026_tidying_up: cleaning_housework
+    c112_washing_hands: personal_hygiene
+    c113_grooming: personal_hygiene
+    # Deliberately dropped: ambiguous / non-domestic / undetectable from pose
+    c999_someone_is_undressing: {drop: true, reason: privacy_sensitive}
+
+  caucafall:
+    fall_forward: falling
+    fall_backward: falling
+    fall_lateral_left: falling
+    fall_lateral_right: falling
+    fall_sitting: falling
+    walking: walking
+    hopping: other_idle          # not a meaningful ADL for elderly monitoring
+    picking_up_object: bending_reaching
+    sitting: sitting
+    kneeling: bending_reaching
+
+  le2i:
+    fall: falling
+    walking: walking
+    sitting_down: sitting_down
+    standing_up: standing_up
+    bending: bending_reaching
+    lying: lying_down
+    housekeeping: cleaning_housework
+
+  gmdcsa24:
+    fall: falling
+    adl: other_idle              # source labels are coarse; test-set use only
+
+  urfd:
+    fall: falling
+    adl_walking: walking
+    adl_sitting: sitting
+    adl_lying: lying_down
+    adl_bending: bending_reaching
+
+  toyota_smarthome:
+    # SUPERSEDED. The table that used to live here was written from memory of the class
+    # names and not one of its keys existed: `Eat_attable`, `Watch_TV`, `Cook_cleandishes`
+    # and the rest match neither official list, so the whole block would have mapped
+    # nothing and every Toyota window would have fallen through to the reject class.
+    #
+    # The real names came out of the dataset's own artefacts - `pipline/data/Action_list`
+    # (51 untrimmed) and `data_gen/smarthome_gendata.py`'s `action_classes` (31 trimmed) -
+    # and the two halves spell the same activities differently (`Read` vs `Readbook`,
+    # `Take_pills` vs `Takepills`), so they need two tables, not one normalised regex.
+    #
+    # Both now live in `src/behaviorsense/data/toyota.py` as TSU_TO_COARSE and
+    # TSM_TO_COARSE, where `collapse_matrix()` REFUSES any unmapped class rather than
+    # defaulting it. That refusal is the point: a silent default to `other_idle` is exactly
+    # what put 18% of this corpus in the reject class in the first draft.
+    #
+    #   python scripts/audit_toyota_map.py --annotations smarthome_CS_51.json
+    #
+    # writes configs/toyota_map.yaml + configs/toyota_map_review.tsv and prints the coarse
+    # distribution. Review that TSV, not this comment.
+    _source: src/behaviorsense/data/toyota.py
+    _fine_classes: {untrimmed: 51, trimmed: 31, cross_view: 19}
+    _protocol: {CS: 351/185 videos, CV1: 75/107/60, CV2: 369/107/60}
+    _cannot_supervise:
+      # Measured, not assumed: 7 of the 22 coarse classes get no positive frames from
+      # Toyota, so the cross-corpus loss must ABSTAIN on them rather than score them
+      # negative. `frame_mask()` carries the per-frame version of the same fact.
+      - standing                  # annotated only as the Get_up transition
+      - sitting                   # annotated only as the Sit_down transition
+      - bending_reaching          # not in the label set
+      - falling                   # ADL corpus: no falls at all
+      - fallen_on_ground
+      - interacting_with_person   # one resident per recording
+      - other_idle                # a reject class has no positives to donate
+
+  ntu120:                        # only if approval lands; skeleton pretraining
+    A008_sit_down: sitting_down
+    A009_stand_up: standing_up
+    A043_falling_down: falling
+    A002_eat_meal: eating
+    A003_brush_teeth: personal_hygiene
+    A004_brush_hair: personal_hygiene
+    A011_reading: reading
+    A028_phone_call: using_phone
+    A059_walking_towards: walking
+    A060_walking_apart: walking
+    A103_take_pills: taking_medication
+
+# ---------------------------------------------------------------------------
+# CLASS-IMBALANCE POLICY
+# `falling` is ~0.5% of frames yet the highest-cost error. Uniform sampling
+# yields a model that never predicts it.
+# ---------------------------------------------------------------------------
+imbalance:
+  strategy: class_balanced_sampling
+  loss: focal_loss
+  focal_gamma: 2.0
+  critical_class_weight_multiplier: 3.0
+  critical_classes: [falling, fallen_on_ground]
+  rationale: >
+    False negatives on falls are clinically unacceptable; false positives are merely
+    annoying. We deliberately trade precision for recall on critical classes and
+    report both, plus the operating point chosen.

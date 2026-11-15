@@ -1,0 +1,602 @@
+"""Tests for the faithfulness verifier.
+
+Each test injects a specific, documented hallucination mode observed in LLM-generated
+clinical summaries, and asserts the verifier catches it. A verifier that passes
+everything is worse than none at all - it manufactures false confidence - so the
+negative cases matter more than the positive one.
+
+Modes covered:
+  V1  faithful claim                          -> PASS
+  V2  fabricated evidence_ref                 -> caught by C1
+  V3  malformed ref                           -> caught by C1
+  V4  invented numeric value                  -> caught by C2
+  V5  wrong percentage                        -> caught by C3
+  V6  INVERTED direction, correct numbers     -> caught by C4  [most dangerous]
+  V7  prose contradicting structured field    -> caught by C4 lexical cross-check
+  V8  pct sign contradicting the data         -> caught by C4 sign check
+  V9  rounding within tolerance               -> PASS (must not over-reject)
+  V10 corpus-level hallucination-rate metric  -> arithmetic sanity
+"""
+
+from __future__ import annotations
+
+import sys
+from contextlib import contextmanager
+from datetime import date, datetime, timedelta
+from pathlib import Path
+
+from pydantic import ValidationError
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+
+@contextmanager
+def pytest_raises(exc_type):
+    """Minimal pytest.raises stand-in so this file runs without pytest installed."""
+    try:
+        yield
+    except exc_type:
+        return
+    except Exception as exc:  # noqa: BLE001
+        raise AssertionError(
+            f"expected {exc_type.__name__}, got {type(exc).__name__}: {exc}"
+        ) from exc
+    raise AssertionError(f"expected {exc_type.__name__}, but no exception was raised")
+
+from behaviorsense.agents.behaviour import BehaviourAnalyzer  # noqa: E402
+from behaviorsense.agents.reasoning.verifier import (  # noqa: E402
+    FaithfulnessVerifier,
+    VerifierConfig,
+    aggregate_reports,
+)
+from behaviorsense.schemas import CaregiverReport, Claim, DailyFeatures, Role  # noqa: E402
+
+D0 = date(2026, 1, 1)
+
+
+def make_day(day: date, walking_s: float = 1800.0, meals: int = 3) -> DailyFeatures:
+    return DailyFeatures(
+        subject_role=Role.RESIDENT,
+        day=day,
+        walking_duration_s=walking_s,
+        walking_bouts=15,
+        mean_bout_duration_s=120.0,
+        room_transitions=30,
+        sit_to_stand_count=20,
+        mean_sit_to_stand_duration_s=2.5,
+        sitting_duration_s=14400.0,
+        lying_duration_s=28800.0,
+        standing_duration_s=3600.0,
+        longest_inactive_block_s=3600.0,
+        meal_events=meals,
+        eating_duration_s=meals * 900.0,
+        drinking_events=6,
+        cooking_duration_s=1800.0,
+        medication_events=1,
+        tv_duration_s=7200.0,
+        reading_duration_s=1800.0,
+        phone_events=2,
+        social_interaction_duration_s=1200.0,
+        visitor_count=1,
+        housework_duration_s=1200.0,
+        observed_hours=24.0,
+        tracking_coverage=1.0,
+    )
+
+
+def build_state():
+    """21 stable days, then a day with a large genuine drop in walking."""
+    analyzer = BehaviourAnalyzer()
+    rng_walk = [1800.0, 1750.0, 1850.0, 1900.0, 1700.0, 1820.0, 1780.0]
+    for i in range(21):
+        analyzer.analyze_day(make_day(D0 + timedelta(days=i), walking_s=rng_walk[i % 7]))
+    return analyzer.analyze_day(make_day(D0 + timedelta(days=21), walking_s=900.0))
+
+
+STATE = build_state()
+DAY_STR = STATE.report_day.isoformat()
+WALK_REF = f"feat:walking_duration_s:{DAY_STR}"
+VERIFIER = FaithfulnessVerifier()
+INDEX = VERIFIER.build_index(STATE)
+TRUE_EV = INDEX[WALK_REF]
+
+
+def test_v0_index_and_ground_truth() -> None:
+    assert WALK_REF in INDEX, f"{WALK_REF} not resolvable; refs={sorted(INDEX)[:5]}"
+    assert abs(TRUE_EV.observed_value - 900.0) < 1e-6
+    assert TRUE_EV.direction == "decrease"
+    assert TRUE_EV.delta < 0
+    print(f"  V0 walking: observed={TRUE_EV.observed_value:.0f}s "
+          f"baseline={TRUE_EV.baseline_median:.0f}s "
+          f"pct={TRUE_EV.pct_change:+.1f}% z={TRUE_EV.robust_z:+.2f} "
+          f"dir={TRUE_EV.direction} | {len(INDEX)} refs resolvable")
+
+
+def test_v1_faithful_claim_passes() -> None:
+    claim = Claim(
+        claim_id="c1",
+        text=(
+            f"Walking duration fell to {TRUE_EV.observed_value:g} s "
+            f"compared with a baseline of {TRUE_EV.baseline_median:g} s."
+        ),
+        evidence_ref=WALK_REF,
+        claimed_value=TRUE_EV.observed_value,
+        claimed_pct_change=TRUE_EV.pct_change,
+        direction="decrease",
+    )
+    r = VERIFIER.verify_claim(claim, INDEX)
+    assert r.is_faithful, f"faithful claim rejected: {r.notes}"
+    print("  V1 faithful claim accepted")
+
+
+def test_v2_fabricated_ref_caught() -> None:
+    """The model cites a plausible-looking but nonexistent feature."""
+    claim = Claim(
+        claim_id="c2",
+        text="Stair climbing decreased significantly.",
+        evidence_ref=f"feat:stair_climbing_duration_s:{DAY_STR}",
+        claimed_value=42.0,
+        direction="decrease",
+    )
+    r = VERIFIER.verify_claim(claim, INDEX)
+    assert not r.is_faithful and not r.ref_exists
+    print(f"  V2 fabricated ref caught: {r.notes[0]}")
+
+
+def test_v3_malformed_ref_rejected_at_schema_level() -> None:
+    """Malformed refs are blocked by the schema before the verifier runs.
+
+    Defence in depth: the Claim pattern rejects them at construction, and
+    verify_claim() also handles them for refs arriving from a non-Pydantic path
+    (raw LLM JSON, a DB row written by an older schema version). Both layers are
+    asserted here.
+    """
+    with pytest_raises(ValidationError):
+        Claim(
+            claim_id="c3",
+            text="Walking decreased.",
+            evidence_ref="feat:walking_duration_s:yesterday",
+            direction="decrease",
+        )
+    print("  V3 layer 1: schema rejected malformed ref at construction")
+
+    # Layer 2: bypass validation the way untrusted external input would.
+    bypassed = Claim.model_construct(
+        claim_id="c3b",
+        text="Walking decreased.",
+        evidence_ref="feat:walking_duration_s:yesterday",
+        claimed_value=None,
+        claimed_pct_change=None,
+        direction="decrease",
+    )
+    r = VERIFIER.verify_claim(bypassed, INDEX)
+    assert not r.is_faithful and not r.ref_exists
+    assert "malformed" in r.notes[0]
+    print(f"  V3 layer 2: verifier caught bypassed ref -> {r.notes[0]}")
+
+
+def test_v4_invented_value_caught() -> None:
+    """Correct ref and direction, but the number is invented."""
+    claim = Claim(
+        claim_id="c4",
+        text="Walking time decreased to 1500 seconds.",
+        evidence_ref=WALK_REF,
+        claimed_value=1500.0,  # actual 900
+        direction="decrease",
+    )
+    r = VERIFIER.verify_claim(claim, INDEX)
+    assert not r.is_faithful and not r.value_matches
+    assert r.ref_exists and r.direction_consistent
+    print(f"  V4 invented value caught: {r.notes[0]}")
+
+
+def test_v5_wrong_percentage_caught() -> None:
+    claim = Claim(
+        claim_id="c5",
+        text=(
+            f"Walking time fell to {TRUE_EV.observed_value:g} s, "
+            "decreased by roughly 12%."
+        ),
+        evidence_ref=WALK_REF,
+        claimed_value=TRUE_EV.observed_value,
+        claimed_pct_change=-12.0,  # actual ~ -50%
+        direction="decrease",
+    )
+    r = VERIFIER.verify_claim(claim, INDEX)
+    assert not r.is_faithful and not r.pct_matches
+    print(f"  V5 wrong percentage caught: {r.notes[0]}")
+
+
+def test_v6_inverted_direction_caught() -> None:
+    """THE dangerous mode: every number correct, narrated backwards.
+
+    C1-C3 all pass. Only the direction check saves the caregiver from being told the
+    resident is improving while they decline.
+    """
+    claim = Claim(
+        claim_id="c6",
+        text=(
+            f"Walking time improved to {TRUE_EV.observed_value:g} s, rising well above "
+            "the usual level."
+        ),
+        evidence_ref=WALK_REF,
+        claimed_value=TRUE_EV.observed_value,       # correct
+        claimed_pct_change=abs(TRUE_EV.pct_change), # correct magnitude, wrong sign
+        direction="increase",                        # WRONG
+    )
+    r = VERIFIER.verify_claim(claim, INDEX)
+    assert r.ref_exists and r.value_matches, "C1/C2 should pass here"
+    assert not r.direction_consistent
+    assert not r.is_faithful
+    print("  V6 inverted narration caught despite correct value:")
+    for n in r.notes:
+        print(f"     - {n}")
+
+
+def test_v7_prose_contradicts_field() -> None:
+    """Structured field right, prose wrong - internally inconsistent output."""
+    claim = Claim(
+        claim_id="c7",
+        text=(
+            f"Mobility has clearly increased to {TRUE_EV.observed_value:g} s and the "
+            "resident is more active."
+        ),
+        evidence_ref=WALK_REF,
+        claimed_value=TRUE_EV.observed_value,
+        direction="decrease",  # field correct, prose contradicts it
+    )
+    r = VERIFIER.verify_claim(claim, INDEX)
+    assert not r.is_faithful and not r.direction_consistent
+    print(f"  V7 self-inconsistent claim caught: {len(r.notes)} note(s)")
+    for n in r.notes:
+        print(f"     - {n}")
+
+
+def test_v8_pct_sign_contradiction() -> None:
+    """Neutral prose, no direction field, but the percentage sign is wrong."""
+    claim = Claim(
+        claim_id="c8",
+        text="Walking duration was recorded at the level shown.",
+        evidence_ref=WALK_REF,
+        claimed_pct_change=abs(TRUE_EV.pct_change),  # positive; truth is negative
+    )
+    r = VERIFIER.verify_claim(claim, INDEX)
+    assert not r.is_faithful and not r.direction_consistent
+    print(f"  V8 pct-sign contradiction caught: {r.notes[-1]}")
+
+
+def test_v9_rounding_tolerated() -> None:
+    """Sensible rounding must NOT be scored as hallucination."""
+    claim = Claim(
+        claim_id="c9",
+        text="Walking fell to about 900 seconds.",
+        evidence_ref=WALK_REF,
+        claimed_value=900.0,
+        claimed_pct_change=round(TRUE_EV.pct_change),  # e.g. -50 vs -50.14
+        direction="decrease",
+    )
+    r = VERIFIER.verify_claim(claim, INDEX)
+    assert r.is_faithful, f"over-rejected rounding: {r.notes}"
+    print(f"  V9 rounding tolerated (claimed {round(TRUE_EV.pct_change)}% "
+          f"vs actual {TRUE_EV.pct_change:.2f}%)")
+
+
+def test_v10_corpus_metric() -> None:
+    """Hallucination rate over a mixed batch, plus the failure breakdown."""
+    claims = [
+        Claim(claim_id="k1", text=f"Walking decreased to {900}.",
+              evidence_ref=WALK_REF,
+              claimed_value=900.0, direction="decrease"),
+        Claim(claim_id="k2", text=f"Walking dropped to {900} s, half the usual level.",
+              evidence_ref=WALK_REF,
+              claimed_value=900.0,
+              claimed_pct_change=TRUE_EV.pct_change, direction="decrease"),
+        Claim(claim_id="k3", text="Bathing decreased.",
+              evidence_ref=f"feat:bathing_duration_s:{DAY_STR}", direction="decrease"),
+        Claim(claim_id="k4", text=f"Walking rose sharply to {900}.",
+              evidence_ref=WALK_REF,
+              claimed_value=900.0, direction="increase"),
+        Claim(claim_id="k5", text="Walking decreased to 1600s.", evidence_ref=WALK_REF,
+              claimed_value=1600.0, direction="decrease"),
+    ]
+    report = VERIFIER.verify_all(claims, STATE)
+    assert report.n_claims == 5
+    assert report.n_faithful == 2, f"expected 2 faithful, got {report.n_faithful}"
+    assert abs(report.hallucination_rate - 0.6) < 1e-9
+
+    breakdown = report.failure_breakdown()
+    assert breakdown["missing_or_bad_ref"] == 1
+    assert breakdown["direction_error"] == 1
+    assert breakdown["value_mismatch"] == 1
+
+    print(f"  V10 {report.summary()}")
+
+    filtered, _ = VERIFIER.filter_faithful(claims, STATE)
+    assert len(filtered) == 2
+    assert {c.claim_id for c in filtered} == {"k1", "k2"}
+    print(f"  V10 deployment filter withheld 3/5 claims, surfaced "
+          f"{sorted(c.claim_id for c in filtered)}")
+
+    pooled = aggregate_reports([report, report])
+    assert pooled.n_claims == 10
+    assert abs(pooled.hallucination_rate - 0.6) < 1e-9
+    print(f"  V10 pooled over 2 reports: {pooled.summary()}")
+
+
+def test_v11_unconstrained_baseline_scoring() -> None:
+    """Ablation support: unconstrained output has no refs at all.
+
+    With require_evidence_ref=True (deployment) such claims score as unfaithful, which
+    is exactly the constrained-vs-unconstrained contrast the paper reports.
+    """
+    claims = [
+        Claim(claim_id="u1", text="The resident seems less active than usual.",
+              evidence_ref=WALK_REF),  # schema forces a ref; content is vague
+    ]
+    strict = FaithfulnessVerifier(VerifierConfig(check_lexical_direction=True))
+    report = strict.verify_all(claims, STATE)
+    print(f"  V11 vague-but-referenced claim: faithful={report.n_faithful}/1 "
+          f"(prose 'less active' matches actual decrease)")
+
+
+def test_v12_prose_quoted_value_caught() -> None:
+    """C5: prose and `claimed_value` must agree numerically.
+
+    The dangerous mode for a caregiver: the row is right, the prose says something
+    different. C2 already passes (the value matches) - the inconsistency hides behind
+    the formal field, and the human reader walks away with the prose.
+    """
+    claim = Claim(
+        claim_id="c12",
+        text="Walking fell to 1800 seconds today.",
+        evidence_ref=WALK_REF,
+        claimed_value=TRUE_EV.observed_value,   # 900, not 1800
+        direction="decrease",
+    )
+    r = VERIFIER.verify_claim(claim, INDEX)
+    assert r.ref_exists and r.value_matches and not r.prose_quoted_value, (
+        "C5 should fail when prose says 1800 and claimed_value is 900")
+    assert not r.is_faithful
+    print(f"  V12 prose-row mismatch caught (prose 1800 vs claimed "
+          f"{TRUE_EV.observed_value:g}): {r.notes[-1]}")
+
+
+def test_v13_prose_quoted_value_tolerates_formatting() -> None:
+    """Forgiving numeric comparison: commas, units, trailing punctuation.
+
+    A caregiver says "1,800 s" or "1800.0s". A 2% relative tolerance absorbs both. The
+    check must not over-reject a faithful sentence.
+    """
+    for text in (
+        "Walking dropped to 1800 seconds.",
+        "Walking time, 1800.0 s, is below usual.",
+        "Went down to 1,800 seconds today.",
+    ):
+        claim = Claim(
+            claim_id=f"c-{hash(text) & 0xffff}",
+            text=text,
+            evidence_ref=WALK_REF,
+            claimed_value=1800.0,
+            direction="decrease",
+        )
+        r = VERIFIER.verify_claim(claim, INDEX)
+        assert r.prose_quoted_value, f"over-rejected {text!r}: {r.notes}"
+    print("  V13 C5 tolerates commas, units, and trailing punctuation")
+
+
+def test_v14_prose_quoted_value_skipped_when_no_value() -> None:
+    """A claim with `claimed_value=None` has nothing to echo. C5 must be vacuous.
+
+    Otherwise a sentence with no numeric claim becomes a free failure, which is the same
+    trap C2 sets up against itself.
+    """
+    claim = Claim(
+        claim_id="c14",
+        text="No particular activity to report today.",
+        evidence_ref=WALK_REF,
+        claimed_value=None,
+        direction="unchanged",
+    )
+    r = VERIFIER.verify_claim(claim, INDEX)
+    assert r.prose_quoted_value, "C5 must not reject a claim with no claimed_value"
+    assert "no prose_quoted_value" not in " ".join(r.notes).lower()
+    print("  V14 C5 vacuous when claimed_value is None")
+
+
+def test_v15_c5_can_be_disabled_for_fixtures() -> None:
+    """`require_prose_quoted_value=False` is for fixtures that intentionally don't echo.
+
+    The deployment default is ON, and the disabling path is tested so a future fixture that
+    quotes a value-free claim (e.g. a system prompt audit) can opt out cleanly.
+    """
+    cfg = VerifierConfig(require_prose_quoted_value=False)
+    lenient = FaithfulnessVerifier(cfg)
+    claim = Claim(
+        claim_id="c15",
+        text="Walking fell dramatically today.",   # no number, prose
+        evidence_ref=WALK_REF,
+        claimed_value=TRUE_EV.observed_value,       # 900
+        direction="decrease",
+    )
+    r = lenient.verify_claim(claim, INDEX)
+    assert r.prose_quoted_value, "C5 must be vacuous when disabled"
+    print("  V15 C5 disabled path is honored when fixture asks for it")
+
+
+def test_v16_failure_breakdown_counts_prose() -> None:
+    """The report's `failure_breakdown` exposes C5 separately, not as part of C2.
+
+    A combined counter would make C2 look worse than it is (it already catches most
+    misquotes) and C5 invisible. Each check has its own column in the error breakdown.
+    """
+    claims = [
+        Claim(claim_id="p1", text=f"Walking fell to {TRUE_EV.observed_value:g}.",
+              evidence_ref=WALK_REF, claimed_value=TRUE_EV.observed_value,
+              direction="decrease"),
+        Claim(claim_id="p2", text="Walking fell to 1800 seconds.",  # prose mismatch
+              evidence_ref=WALK_REF, claimed_value=TRUE_EV.observed_value,
+              direction="decrease"),
+        Claim(claim_id="p3", text=f"Walking fell to {TRUE_EV.observed_value:g}.",
+              evidence_ref=WALK_REF, claimed_value=1600.0, direction="decrease"),
+    ]
+    report = VERIFIER.verify_all(claims, STATE)
+    breakdown = report.failure_breakdown()
+    assert breakdown["prose_quoted_value_mismatch"] == 1, breakdown
+    assert breakdown["value_mismatch"] == 1, breakdown
+    assert breakdown["missing_or_bad_ref"] == 0
+    print(f"  V16 breakdown keys include prose=1, value=1 separately: "
+          f"{sorted(breakdown.items())}")
+
+
+def test_v17_duplicate_ids_are_rejected_before_id_based_filtering() -> None:
+    honest = Claim(claim_id="same", text="Walking fell to 900 seconds.",
+                   evidence_ref=WALK_REF, claimed_value=900.0, direction="decrease")
+    false = honest.model_copy(update={"text": "Walking fell to 9999 seconds.",
+                                      "claimed_value": 9999.0})
+    for pair in ([honest, false], [false, honest]):
+        for operation in (VERIFIER.verify_all, VERIFIER.filter_faithful):
+            with pytest_raises(ValueError):
+                operation(pair, STATE)
+    # A distinct ID preserves both verdicts and returns only the actual honest text.
+    filtered, report = VERIFIER.filter_faithful(
+        [honest, false.model_copy(update={"claim_id": "false"})], STATE)
+    assert filtered == [honest]
+    assert report.n_claims == 2 and report.n_faithful == 1
+
+    # A report restored from JSON must enforce the same join invariant, even when it
+    # did not pass through CaregiverReporter in this process.
+    base = dict(report_id="restored", subject_role=Role.RESIDENT, report_day=STATE.report_day,
+                generated_at=datetime.now(), summary="", recommendation="")
+    verdict = VERIFIER.verify_claim(honest, INDEX)
+    with pytest_raises(ValidationError):
+        CaregiverReport(**base, claims=[honest, false], verifications=[verdict])
+    with pytest_raises(ValidationError):
+        CaregiverReport(**base, claims=[honest], verifications=[verdict, verdict])
+    restored = CaregiverReport(**base, claims=[honest], verifications=[verdict])
+    assert restored.faithful_claims == [honest]
+    print("  V17 duplicate IDs rejected; distinct honest and false claims remain independently scored")
+
+
+def test_v18_observed_only_evidence_has_no_comparison_and_still_checks_values() -> None:
+    """Missing history keeps an observed value citable without fabricating a zero baseline."""
+    from behaviorsense.schemas import Evidence
+
+    evidence = Evidence.build("cooking_duration_s", 29.25, None, D0)
+    assert evidence.observed_value == 29.25 and evidence.baseline_n_days == 0
+    for field in ("baseline_median", "robust_z", "pct_change", "delta", "direction"):
+        assert getattr(evidence, field) is None, (field, evidence)
+    # JSON round trips must preserve unavailable comparisons as null, not turn them into zero.
+    restored = Evidence.model_validate_json(evidence.model_dump_json())
+    assert restored == evidence and restored.direction is None
+
+    state = BehaviourAnalyzer().analyze_day(DailyFeatures(
+        subject_role=Role.RESIDENT, day=D0, cooking_duration_s=29.25,
+        observed_hours=30 / 3600, tracking_coverage=1.0))
+    index = VERIFIER.build_index(state)
+    assert index[evidence.ref] == evidence
+    honest = Claim(claim_id="observed", evidence_ref=evidence.ref,
+                   text="Cooking was observed for 29.25 seconds.", claimed_value=29.25)
+    verdict = VERIFIER.verify_claim(honest, index)
+    assert verdict.is_faithful, verdict.notes
+    wrong_value = honest.model_copy(update={"claimed_value": 59.25,
+                                           "text": "Cooking was observed for 59.25 seconds."})
+    verdict = VERIFIER.verify_claim(wrong_value, index)
+    assert verdict.ref_exists and not verdict.value_matches and not verdict.is_faithful
+    print("  V18 absent baseline preserves observations, null comparisons and value verification")
+
+
+def test_v19_unavailable_comparisons_reject_percentages_and_directions() -> None:
+    """Neither a short clip nor an untracked feature permits a comparison claim."""
+    # The partial state still carries a real walking baseline. The verifier must withhold
+    # its comparison independently, even if a model ignores the prompt's instructions.
+    partial_today = STATE.today.model_copy(update={"observed_hours": 30 / 3600,
+                                                  "walking_duration_s": 29.25})
+    partial = STATE.model_copy(update={"today": partial_today, "alerts": []})
+    assert "walking_duration_s" in partial.baselines
+    missing = STATE.model_copy(update={"today": STATE.today.model_copy(
+        update={"cooking_duration_s": 29.25})})
+    assert missing.today.is_reliable() and "cooking_duration_s" not in missing.baselines
+
+    for state, feature in ((partial, "walking_duration_s"), (missing, "cooking_duration_s")):
+        index = VERIFIER.build_index(state)
+        ref = f"feat:{feature}:{state.report_day.isoformat()}"
+        evidence = index[ref]
+        for field in ("baseline_median", "robust_z", "pct_change", "delta", "direction"):
+            assert getattr(evidence, field) is None, (feature, field, evidence)
+        honest = Claim(claim_id="observed", evidence_ref=ref,
+                       text=f"{feature} was observed for 29.25 seconds.", claimed_value=29.25)
+        assert VERIFIER.verify_claim(honest, index).is_faithful
+
+        for pct in (0.0, 20.0, -20.0):
+            claim = honest.model_copy(update={"claimed_pct_change": pct})
+            verdict = VERIFIER.verify_claim(claim, index)
+            assert verdict.ref_exists and verdict.value_matches
+            assert not verdict.pct_matches and not verdict.is_faithful, (feature, pct, verdict)
+        for direction in ("increase", "decrease", "unchanged"):
+            claim = honest.model_copy(update={"direction": direction})
+            verdict = VERIFIER.verify_claim(claim, index)
+            assert verdict.ref_exists and verdict.value_matches and verdict.pct_matches
+            assert not verdict.direction_consistent and not verdict.is_faithful, (
+                feature, direction, verdict)
+        for verb in ("increased", "decreased"):
+            claim = honest.model_copy(update={"text": f"{feature} {verb} to 29.25 seconds."})
+            verdict = VERIFIER.verify_claim(claim, index)
+            assert verdict.ref_exists and verdict.value_matches and verdict.prose_quoted_value
+            assert not verdict.direction_consistent and not verdict.is_faithful, (
+                feature, verb, verdict)
+    print("  V19 missing and partial comparisons reject percentages, directions and comparative prose")
+
+
+def test_v20_observed_only_prose_distinguishes_comparisons_from_physical_actions() -> None:
+    """No comparison can be inferred, but a fall or standing up remains an observation."""
+    from behaviorsense.schemas import Evidence
+
+    cooking = Evidence.build("cooking_duration_s", 29.25, None, D0)
+    index = {cooking.ref: cooking}
+    for text in (
+        "Cooking increased and decreased to 29.25 seconds.",
+        "Cooking was stable at 29.25 seconds.",
+        "Cooking was unchanged at 29.25 seconds.",
+        "Cooking fell to 29.25 seconds.",
+        "Cooking has fallen to 29.25 seconds.",
+        "Cooking went up by 29.25 seconds.",
+        "Cooking was down from 29.25 seconds.",
+    ):
+        claim = Claim(claim_id="comparison", evidence_ref=cooking.ref,
+                      text=text, claimed_value=29.25)
+        verdict = VERIFIER.verify_claim(claim, index)
+        assert verdict.ref_exists and verdict.value_matches and verdict.prose_quoted_value
+        assert not verdict.direction_consistent and not verdict.is_faithful, (text, verdict)
+
+    for feature, text in (
+        ("fall_events", "1 fall was observed in the window."),
+        ("sit_to_stand_count", "Standing up was observed 1 time."),
+        ("fall_events", "The resident fell; 1 fall was observed in the window."),
+        ("fall_events", "The resident fell from standing; 1 fall event was observed."),
+        ("fall_events", "The resident fell to the floor; 1 fall event was observed."),
+        ("lying_duration_s", "Lying down was observed for 1 second."),
+    ):
+        evidence = Evidence.build(feature, 1.0, None, D0)
+        claim = Claim(claim_id="action", evidence_ref=evidence.ref,
+                      text=text, claimed_value=1.0)
+        verdict = VERIFIER.verify_claim(claim, {evidence.ref: evidence})
+        assert verdict.is_faithful, (text, verdict.notes)
+    print("  V20 comparison prose is rejected while falls and standing up remain citable")
+
+
+if __name__ == "__main__":
+    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
+    failed = 0
+    for fn in tests:
+        try:
+            print(f"{fn.__name__}:")
+            fn()
+            print("  PASS")
+        except AssertionError as exc:
+            failed += 1
+            print(f"  FAIL: {exc}")
+        except Exception as exc:  # noqa: BLE001
+            failed += 1
+            print(f"  ERROR: {type(exc).__name__}: {exc}")
+    print(f"\n{len(tests) - failed}/{len(tests)} passed")
+    sys.exit(1 if failed else 0)

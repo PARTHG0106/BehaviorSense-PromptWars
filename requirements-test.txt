@@ -1,0 +1,7 @@
+# CPU test dependencies; GPU extraction and hosted LLM access are not needed.
+-r requirements-serve.txt
+torch>=2.7
+pytest>=9
+requests>=2.32,<3   # Kaggle coordinator retry exception classes
+scipy>=1.9          # bounded CPU optimization for fitting-only RGB pilot selection
+opencv-python-headless>=4.13,<4.15  # RGB preprocessing and synthetic-video fixtures
