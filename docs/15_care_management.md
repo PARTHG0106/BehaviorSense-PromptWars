@@ -4,6 +4,17 @@ Run `python web/care_backend.py` and open `http://127.0.0.1:8787`. Care profiles
 
 The care homepage is `web/index.html`; `/`, `/index.html` and `/care.html` open that same page. `/activity` and `/activity.html` open the separate observation interface. A short walkthrough and fictional demo make the care workflow available immediately.
 
+## Code structure
+
+- `care_store.py` owns profile persistence, schedules, confirmations and reminder event state.
+- `care_api.py` validates typed requests and enforces authenticated profile access.
+- `care_email.py` owns preview/SMTP transport configuration and delivery.
+- `web/scripts/care.js` coordinates forms and renders the care workflow.
+- `care-messages.js` contains the English, Hindi and Marathi interface dictionary.
+- `care-summary.js` derives daily confirmation counts from the returned records.
+
+`npm run format:check` verifies the care controller, dictionary, counts, markup, styles and browser fixtures. The GitHub code-quality job runs this check on every push.
+
 ## Profile access and storage
 
 Each profile receives a random 128-bit ID and generated access code. Codes are stored as PBKDF2-HMAC-SHA256 hashes with a random salt and 600,000 rounds. Bearer sessions use random tokens, stored as SHA256 hashes, and expire after 12 hours. Login failures are throttled. Every private API operation derives its profile from the validated token; medication and appointment IDs cannot access another profile.

@@ -2,10 +2,13 @@
   "name": "behaviorsense-promptwars",
   "private": true,
   "scripts": {
+    "format:care": "prettier --write web/scripts/care.js web/scripts/care-messages.js web/scripts/care-summary.js web/index.html web/styles/care.css tests/test_care_summary.mjs tests/test_accessibility.mjs",
+    "format:check": "prettier --check web/scripts/care.js web/scripts/care-messages.js web/scripts/care-summary.js web/index.html web/styles/care.css tests/test_care_summary.mjs tests/test_accessibility.mjs",
     "test:accessibility": "node tests/test_accessibility.mjs"
   },
   "devDependencies": {
     "axe-core": "4.14.0",
-    "playwright-core": "1.65.1"
+    "playwright-core": "1.65.1",
+    "prettier": "3.10.1"
   }
 }

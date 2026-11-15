@@ -27,14 +27,14 @@ Today's summary counts **taken, skipped, pending and overdue confirmations** fro
 
 The published challenge is **Elderly Care & Medication Management Platform**. BehaviorSense implements its care-management workflow and adds an optional observation and reporting layer.
 
-| Challenge requirement | Current implementation |
-|---|---|
-| Keep family members and caregivers informed | Shared care notes, medication schedule, confirmation history, appointments and optional activity reports |
-| Make care accessible and reliable | English, Hindi and Marathi care views; keyboard navigation; large text; high contrast; reduced motion; labelled forms and visible errors |
-| Monitor medication adherence | Explicit caregiver-reported taken/skipped records, pending and overdue confirmations, timestamps and caregiver names |
-| Shared healthcare profile and passcode access | Random profile IDs, generated access codes, salted PBKDF2 hashes, expiring sessions and profile-scoped API access |
-| Add/edit medication schedules and doctor appointments | Daily dose times, prescribed instructions, start dates, active/stopped medications, editable appointments and attended/cancelled status |
-| Email reminders for upcoming or missed doses and appointments | Background scheduler, deduplicated email outbox, previews by default and SMTP delivery when explicitly configured |
+| Challenge requirement | Current implementation | Where to inspect |
+|---|---|---|
+| Keep family members and caregivers informed | Shared care notes, medication schedule, confirmation history, appointments and optional activity reports | [Care homepage](web/index.html), [shared API](src/behaviorsense/service/care_api.py) |
+| Make care accessible and reliable | English, Hindi and Marathi care views; keyboard navigation; large text; high contrast; reduced motion; labelled forms and visible errors | [Care translations](web/scripts/care-messages.js), [display controls](web/scripts/accessibility.js) |
+| Monitor medication adherence | Explicit caregiver-reported taken/skipped records, pending and overdue confirmations, timestamps, names and notes | [Dose and history logic](src/behaviorsense/service/care_store.py), [daily counts](web/scripts/care-summary.js) |
+| Shared healthcare profile and passcode access | Random profile IDs, generated access codes, salted PBKDF2 hashes, expiring sessions and profile-scoped API access | [Profile/session store](src/behaviorsense/service/care_store.py), [typed authenticated API](src/behaviorsense/service/care_api.py) |
+| Add/edit medication schedules and doctor appointments | Daily dose times, prescribed instructions, start dates, active/stopped medications, editable appointments and attended/cancelled status | [Care controller](web/scripts/care.js), [schedule storage](src/behaviorsense/service/care_store.py) |
+| Email reminders for upcoming or missed doses and appointments | Background scheduler, deduplicated email outbox, previews by default and SMTP delivery when explicitly configured | [Reminder scheduler](src/behaviorsense/service/care_store.py), [SMTP transport](src/behaviorsense/service/care_email.py) |
 
 Intake records are caregiver reports. Video predictions do not create medication confirmations. An overdue confirmation means the care team needs to check the plan; it does not prove that a person missed a dose.
 
@@ -226,14 +226,16 @@ JavaScript checks require **Node.js 22 or later**. The runner tests a temporary 
 
 ## Alignment with the evaluation focus areas
 
-| Criterion | What reviewers can inspect |
-|---|---|
-| Code Quality | Separate care store, typed API, email transport and UI modules; shared accessibility controls; existing perception, reporting and verification modules |
-| Security | Salted PBKDF2 access-code hashes, hashed expiring sessions, login throttling, per-profile authorization, parameterized SQL, versioned edits, private database, no-store responses, strict care-page CSP and TLS SMTP |
-| Efficiency | Care management runs on CPU; indexed SQLite tables and deduplicated reminder events; video uses one isolated worker per T4 with bounded admission and chunked uploads |
-| Testing | Care security/scheduling tests; axe and functional browser checks; isolated CPU model/service/notebook suites; real model-forward smoke checks on both T4 GPUs |
-| Accessibility | Keyboard-native controls, focus indicators, skip navigation, labelled forms, announced errors, 44-pixel controls, large text, high contrast, reduced motion, three languages and responsive layouts |
-| Problem Statement Alignment | Shared care profiles, medication schedules, caregiver-confirmed intake, doctor appointments and configurable upcoming/overdue email reminders, with optional activity observation |
+| Impact | Criterion | What reviewers can inspect |
+|---|---|---|
+| **High** | Code Quality | Separate care store, typed API, email transport, controller, translation dictionary and daily-count module; readable formatted care code; `npm run format:check` enforced in CI |
+| **High** | Problem Statement Alignment | Working care homepage and a requirement-to-source map above: shared profiles, medication schedules, caregiver-confirmed intake, appointments and upcoming/overdue email reminders |
+| Medium | Efficiency | Care management runs on CPU; indexed SQLite tables and deduplicated reminder events; video uses one isolated worker per T4 with bounded admission and chunked uploads |
+| Medium | Security | Salted PBKDF2 access-code hashes, hashed expiring sessions, login throttling, per-profile authorization, parameterized SQL, versioned edits, private database, no-store responses, strict care-page CSP and TLS SMTP |
+| Low | Testing | Care security/scheduling tests; functional browser checks; isolated CPU model/service/notebook suites; model-forward smoke checks on both T4 GPUs |
+| Low | Accessibility | Keyboard-native controls, focus indicators, skip navigation, labelled forms, announced errors, 44-pixel controls, large text, high contrast, reduced motion, three languages and responsive layouts |
+
+Check care-code formatting with `npm ci` followed by `npm run format:check`. Run `npm run format:care` after editing the care interface. The formatter is a pinned development dependency; it is not needed to run the application.
 
 ## Assumptions
 
