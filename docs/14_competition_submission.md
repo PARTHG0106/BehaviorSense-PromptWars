@@ -2,7 +2,7 @@
 
 Use [PARTHG0106/BehaviorSense-PromptWars](https://github.com/PARTHG0106/BehaviorSense-PromptWars) for the competition repository link and public project posts.
 
-The competition requires a public repository, exactly one branch, and a repository smaller than 10 MB. This source snapshot uses a single `main` branch. Its tracked files total approximately **5.53 MB**, using decimal MB. The packaging check requires fewer than **10,000,000 bytes** for both tracked source files and a fresh clone including Git metadata.
+The competition requires a public repository, exactly one branch, and a repository smaller than 10 MB. This source snapshot uses a single `main` branch. The packaging check requires fewer than **10,000,000 bytes** for both tracked source files and a fresh clone including Git metadata. Node dependencies, private databases, model assets and generated audit output are excluded from Git.
 
 ## Included project files
 
@@ -10,7 +10,7 @@ The repository includes the complete `src/`, `web/`, `scripts/`, `configs/`, `te
 
 Trained model weights and detector weights are obtained from the two public Kaggle datasets in the [README](../README.md#run-the-project). Development conversation archives and operator settings are excluded from this package. Generated artifacts and model files are ignored by Git.
 
-The application, training and test source is copied from original commit `778785d2829233cdabe0e0a75da65df7d8d59951`. The previous [functional validation record](../results/submission_validation_20261115.md) covers those source files. Packaging changes update the repository links, README and ignore rules; the frontend's “Read the code” link points to this competition repository. The dependency lists now explicitly include the multipart upload parser and coordinator HTTP library. The test runner resolves temporary-directory aliases for clean Windows environments.
+The activity/model baseline comes from original commit `778785d2829233cdabe0e0a75da65df7d8d59951`. The [validation record](../results/submission_validation_20261115.md) covers that baseline. The competition snapshot also includes [shared care management](15_care_management.md) and the [accessibility improvements](16_accessibility.md), with separate API and browser tests. The dependency lists explicitly include the multipart upload parser and coordinator HTTP library. The test runner resolves temporary-directory aliases for clean Windows environments.
 
 Earlier development history remains available in the [original project](https://github.com/PARTHG0106/BehaviorSense). This snapshot starts its own history to keep the submission package small.
 
@@ -29,4 +29,4 @@ The branch list should contain only `refs/heads/main`. GitHub's `diskUsage` valu
 git archive --format=zip --output=../BehaviorSense-PromptWars.zip HEAD
 ```
 
-The competition permits a maximum of two submission attempts. Use the verified repository URL when completing the competition form. Medication schedules, shared care profiles, appointments and email reminders remain documented as pending in the README.
+The competition permits a maximum of two submission attempts. Use the verified repository URL when completing the competition form. The README distinguishes caregiver-reported intake, scheduled reminders and optional video observations.

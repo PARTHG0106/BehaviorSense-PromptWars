@@ -1,5 +1,16 @@
 # web/
 
+Run the shared care profile, medication diary, appointments and reminders with:
+
+```bash
+python web/care_backend.py
+# http://127.0.0.1:8787
+```
+
+The care platform uses a private, Git-ignored SQLite database. Its interface supports English, Hindi and Marathi, keyboard navigation, large text, high contrast and reduced motion. Email is preview-only unless SMTP is explicitly configured. See [care management](../docs/15_care_management.md) and [accessibility](../docs/16_accessibility.md).
+
+The activity/report interface remains available at `http://127.0.0.1:8787/activity` and connects to the reporting bridge at `http://127.0.0.1:8899`.
+
 The front end for BehaviorSense. No build step, no dependencies, no framework — open it with
 any static server and it runs.
 

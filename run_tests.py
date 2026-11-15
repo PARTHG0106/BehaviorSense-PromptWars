@@ -31,6 +31,7 @@ SUITE_TIMEOUT = -1000
 HEARTBEAT_SECONDS = 30
 
 FAST = [
+    ("Shared care profiles, schedules and reminders", "tests/test_care_service.py"),
     ("Test runner isolation", "tests/test_runner.py"),
     ("Agent 1 perception", "tests/test_perception.py"),
     ("Agent 2 activity", "tests/test_activity.py"),

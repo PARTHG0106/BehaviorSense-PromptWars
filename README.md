@@ -1,32 +1,38 @@
 # BehaviorSense AI
 
-**Evidence-backed activity monitoring and caregiver reports for elderly care.**
+**Shared care profiles, medication confirmations, appointments and evidence-backed activity reports.**
 
 [PromptWars x Catalyst](https://hack2skill.com/event/promptwars-x-catalyst) · **Chosen vertical: Elderly Care & Assisted Living** · [Run the demo](#run-the-project) · [Backend notebook](notebooks/notebookef04f4f9bb%20%281%29.ipynb) · [Research results](results/rgb_improvement_20261015.md)
 
-BehaviorSense turns uploaded video into activity timelines, observed routine features, and caregiver reports whose structured claims can be checked against the underlying evidence. It helps caregivers review what was observed, including eating, drinking, housework, and medication-related activity, while exposing uncertainty and unsupported claims.
+BehaviorSense helps family members and caregivers manage an elderly person's daily care in one shared profile. It stores prescribed medication schedules, caregiver-reported intake, doctor appointments and email reminders. Its optional video workflow adds activity timelines and caregiver reports whose structured claims can be checked against recorded evidence.
 
 The project is an existing research prototype adapted for this competition. This repository contains a fresh source snapshot for the competition, with one `main` branch. Earlier development history remains available in the [original repository](https://github.com/PARTHG0106/BehaviorSense), and the research reports are included here.
 
-This public submission repository contains about **5.53 MB of source files**. It includes the full application code, tests and Kaggle notebook. See the [submission package details](docs/14_competition_submission.md). Model weights are supplied by the public Kaggle datasets listed below.
+This public submission repository stays below **10 MB** and uses one `main` branch. It includes the full application code, tests and Kaggle notebook. See the [submission package details](docs/14_competition_submission.md). Model weights are supplied by the public Kaggle datasets listed below.
 
 ## Competition fit and current scope
 
-The published challenge is **Elderly Care & Medication Management Platform**. It asks for collaborative healthcare profiles, medication schedules and adherence, appointments, passcode-based access, and proactive email reminders. BehaviorSense contributes an observation and reporting layer to that broader platform.
+The published challenge is **Elderly Care & Medication Management Platform**. BehaviorSense implements its care-management workflow and adds an optional observation and reporting layer.
 
 | Challenge requirement | Current implementation |
 |---|---|
-| Keep family members and caregivers informed | Activity timelines, caregiver reports, evidence references, and visible verification results |
-| Make care accessible and reliable | English, Hindi and Marathi caregiver views; partial-observation handling; unsupported claims withheld |
-| Monitor medication adherence | Medication-related activity can be observed; ingestion, dosage and adherence to a prescribed schedule are not established |
-| Shared healthcare profile and passcode access | Planned. Optional resident enrollment and a backend token exist, but there is no shared healthcare-profile access system |
-| Add/edit medication schedules and doctor appointments | Planned |
-| Email reminders for upcoming or missed doses and appointments | Planned |
+| Keep family members and caregivers informed | Shared care notes, medication schedule, confirmation history, appointments and optional activity reports |
+| Make care accessible and reliable | English, Hindi and Marathi care views; keyboard navigation; large text; high contrast; reduced motion; labelled forms and visible errors |
+| Monitor medication adherence | Explicit caregiver-reported taken/skipped records, pending and overdue confirmations, timestamps and caregiver names |
+| Shared healthcare profile and passcode access | Random profile IDs, generated access codes, salted PBKDF2 hashes, expiring sessions and profile-scoped API access |
+| Add/edit medication schedules and doctor appointments | Daily dose times, prescribed instructions, start dates, active/stopped medications, editable appointments and attended/cancelled status |
+| Email reminders for upcoming or missed doses and appointments | Background scheduler, deduplicated email outbox, previews by default and SMTP delivery when explicitly configured |
 
-The current submission demonstrates activity monitoring and verified reporting. Scheduling, appointment management, collaborative profile access, and email reminders remain the next product features.
+Intake records are caregiver reports. Video predictions do not create medication confirmations. An overdue confirmation means the care team needs to check the plan; it does not prove that a person missed a dose.
+
+![Shared care profile, medication confirmation and accessible display controls using fictional demo data](docs/images/care-overview.png)
 
 ## What you can demonstrate
 
+- Create a private care profile and share its ID and access code with a trusted caregiver.
+- Add or edit prescribed medications and daily dose times; confirm taken or skipped doses and inspect their history.
+- Keep doctor appointments, update attendance and inspect due reminder previews.
+- Choose English, Hindi or Marathi; increase text size, enable high contrast or reduce motion.
 - Upload a video and inspect tracked people, activity segments, and the outputs of each processing stage.
 - Detect multiple activities in the same window, including the saved TV-plus-drinking decision rule.
 - Review observed durations and event counts without treating a short clip as a full day of history.
@@ -36,6 +42,12 @@ The current submission demonstrates activity monitoring and verified reporting. 
 - Process two clips concurrently, using one Kaggle T4 GPU per clip.
 
 ## How it works
+
+The care platform runs on CPU with a private SQLite database. A caregiver creates a profile, shares its generated access code, and enters the clinician's medication plan and appointments. Each dose can receive an explicit caregiver confirmation. Updates use version checks so another caregiver's saved changes cannot be silently overwritten.
+
+The scheduler checks due times every 30 seconds. Medication reminders are queued 15 minutes before a dose; overdue-confirmation reminders are queued 60 minutes after it. Appointment reminders start 60 minutes before a visit, with follow-up reminders 30 minutes after an unconfirmed visit. Unique event keys prevent repeated messages. Confirmed, stopped, changed or cancelled events are rechecked before SMTP delivery. Email previews are available without an email account.
+
+The optional activity/report pipeline works alongside the care plan:
 
 ```mermaid
 flowchart LR
@@ -71,7 +83,33 @@ python -m pip install -r requirements-serve.txt
 
 On Linux/macOS, activate with `source .venv/bin/activate`. A local GPU or local activity-model weights are unnecessary for this split setup.
 
-### 2. Run the supplied notebook on Kaggle
+### 2. Run the care platform
+
+```powershell
+python web/care_backend.py
+```
+
+Open **http://127.0.0.1:8787**. Create a care profile or choose **Try a fictional care profile**. Add prescriptions, confirm intake, update appointments and review email previews. The care platform works without Kaggle or an OpenRouter key.
+
+Share the profile ID and generated access code privately. A second caregiver can open the same care server and sign in with those details and their own caregiver name. The default server binds to localhost for a local demo; remote use requires a trusted deployment with HTTPS.
+
+Records are stored at `data/care.sqlite3`, outside the static web assets and ignored by Git. The care API requires profile-scoped bearer sessions and sends `Cache-Control: no-store`. Session tokens expire after 12 hours. The supported care-plan time zones are India (`Asia/Kolkata`) and UTC; existing schedules prevent later time-zone changes that would reinterpret dose times.
+
+For real email delivery, configure an SMTP account locally and restart the care server:
+
+```powershell
+$env:BS_MAIL_MODE = "smtp"
+$env:BS_SMTP_HOST = "YOUR_SMTP_HOST"
+$env:BS_SMTP_PORT = "587"
+$env:BS_SMTP_FROM = "YOUR_SENDER_ADDRESS"
+$env:BS_SMTP_USER = "YOUR_SMTP_USERNAME"
+$env:BS_SMTP_PASSWORD = "YOUR_SMTP_PASSWORD"
+python web/care_backend.py
+```
+
+The transport uses STARTTLS on port 587 or TLS on port 465. Enable reminders and supply a recipient in the care profile. Default `BS_MAIL_MODE=preview` stores previews and sends no email. The server must remain running for scheduled checks. [Care-platform details](docs/15_care_management.md).
+
+### 3. Add video observations with Kaggle (optional)
 
 Download/import **[notebookef04f4f9bb (1).ipynb](notebooks/notebookef04f4f9bb%20%281%29.ipynb)** into Kaggle. This is the backend notebook for the competition demo.
 
@@ -96,7 +134,7 @@ Use the link from your current session. It changes when the notebook restarts an
 
 No Qwen model dataset, original Toyota training runs, raw Toyota videos, pose shards, or separate code dataset is needed to run this demo.
 
-### 3. Start the local reporting bridge
+### 4. Start the local reporting bridge
 
 In a local terminal with the virtual environment active, set your OpenRouter key and run the command printed by Kaggle:
 
@@ -109,9 +147,11 @@ For Linux/macOS, use `export OPENROUTER_API_KEY_1="YOUR_OPENROUTER_API_KEY"`. Mu
 
 The bridge listens at **http://127.0.0.1:8899**. If you set `BS_TOKEN` in the notebook, pass the same value to this command with `--token`.
 
-### 4. Open the web app
+### 5. Open the activity/report view
 
-In a second terminal from the repository root:
+Use **Activity observations** in the care platform, or open **http://127.0.0.1:8787/activity**. Set its backend field to **http://127.0.0.1:8899**.
+
+The activity page can also be served independently. In a second terminal from the repository root:
 
 ```powershell
 python -m http.server 5173 --bind 127.0.0.1 --directory web
@@ -155,6 +195,8 @@ The caregiver view withholds structured claims that fail these checks. The brows
 | Fitting-coverage study | mAP **41.44% → 58.25%**, pair F1 **4.53% → 13.88%**. Exploratory subject-separated coverage comparison; its advancement gate failed. [Report](results/rgb_fitting_coverage_20261016.md) |
 | Supplied Kaggle notebook | Successful model-forward smoke checks on **two Tesla T4 GPUs using FP32**, plus backend startup. [Recorded evidence](results/kaggle_backend_smoke_20261115.md) |
 | Local submission validation | 49 suites covered; **910/910 reported tests passed**, with 5 skipped, across the full run and corrective reruns. [Validation record](results/submission_validation_20261115.md) |
+| Care-platform validation | **17/17 tests passed** for access isolation, session expiry, concurrent edits, intake records, reminder deduplication, preview-to-SMTP transition, SMTP safety and private storage |
+| Accessibility validation | **Zero axe violations across six audited views**; keyboard skip navigation, explicit intake, three languages, large text, high contrast and 320-pixel reflow checked. [Audit](results/accessibility_20261115.md) |
 | Behaviour-layer simulation | 24/24 targeted anomaly cases detected; median latency 4 days; 5.07 false alerts per 100 control resident-days. Synthetic scenarios, not clinical validation. [Report](results/behaviour_eval.md) |
 
 The original RGB accuracy benchmark used a different GPU and BF16 feature extraction. The T4 smoke checks confirm startup and model execution; they do not establish the accuracy of this FP32 tracked-person adapter. Earlier validation/test inspection also limits independent generalization claims.
@@ -172,15 +214,19 @@ JavaScript checks require **Node.js 22 or later**. The runner tests a temporary 
 
 | Criterion | What reviewers can inspect |
 |---|---|
-| Code Quality | Separate perception, model, behaviour, reporting, verification and service modules; typed schemas; reusable shared logic; source and tests inside this repository |
-| Security | Local API-key handling, ignored credentials and resident galleries, optional backend token, model/source integrity checks, isolated video workers, bounded uploads and deterministic claim verification. Shared healthcare-profile access is still pending |
-| Efficiency | One isolated worker per T4, two concurrent clips, bounded admission, chunked uploads, reusable feature computations and cleanup when a worker exits |
-| Testing | Isolated CPU suites for models, schemas, services, notebook logic and the web contract; synthetic-video and concurrent-upload checks; recorded model-forward smoke checks on both T4 GPUs |
-| Accessibility | English/Hindi/Marathi caregiver views, language-aware controls, activity timelines, visible progress and errors, and inspectable evidence. No formal accessibility certification is claimed |
-| Problem Statement Alignment | Elderly-care activity observation and caregiver reporting are implemented; shared passcode profiles, medication schedules, confirmed adherence, appointments and email reminders remain pending |
+| Code Quality | Separate care store, typed API, email transport and UI modules; shared accessibility controls; existing perception, reporting and verification modules |
+| Security | Salted PBKDF2 access-code hashes, hashed expiring sessions, login throttling, per-profile authorization, parameterized SQL, versioned edits, private database, no-store responses, strict care-page CSP and TLS SMTP |
+| Efficiency | Care management runs on CPU; indexed SQLite tables and deduplicated reminder events; video uses one isolated worker per T4 with bounded admission and chunked uploads |
+| Testing | Care security/scheduling tests; axe and functional browser checks; isolated CPU model/service/notebook suites; real model-forward smoke checks on both T4 GPUs |
+| Accessibility | Keyboard-native controls, focus indicators, skip navigation, labelled forms, announced errors, 44-pixel controls, large text, high contrast, reduced motion, three languages and responsive layouts |
+| Problem Statement Alignment | Shared care profiles, medication schedules, caregiver-confirmed intake, doctor appointments and configurable upcoming/overdue email reminders, with optional activity observation |
 
 ## Assumptions
 
+- Caregivers enter medication and appointment information from the person's care plan. The application does not prescribe medication or decide doses.
+- An access-code holder is authorized to read and edit that profile. Caregiver names in the history are self-reported; this prototype does not verify professional credentials.
+- Taken/skipped records represent caregiver confirmation. Video activity predictions and missing confirmations cannot establish pill ingestion or diagnosis.
+- Email recipients consent to reminders. Real delivery requires operator-configured SMTP and a running care server; previews clearly identify their mode.
 - The operator provides a video they are authorized to process and uses a trusted local machine and Kaggle account. Public model datasets do not make uploaded personal video public by design.
 - Video has at least 20 FPS and fits the configured upload and duration limits. The demo is offline and uses future context; it is not a continuous real-time monitor.
 - An observed medication-related movement is an activity-model prediction, not proof of pill ingestion, dosage or adherence to a prescription.
@@ -192,12 +238,16 @@ JavaScript checks require **Node.js 22 or later**. The runner tests a temporary 
 
 The demo performs offline analysis with future context. Default uploads are capped at **100 MB** and **30 minutes**; source video must be at least **20 FPS**. A short clip supports statements about what was observed, not a complete medication-adherence history or a diagnosis. The frozen model disables seven unscored classes, including fall classes. Motion-only tracking can also swap identities during crossings.
 
-Next product work is shared healthcare profiles with authorized passcode access, editable medication schedules, explicit adherence confirmations, doctor appointments, and email reminders. Those features should be driven by the elderly person's preferences and explicit care plan, with observed activity kept separate from confirmed medication intake.
+The care platform is a local prototype with shared access codes. Individual clinical roles, verified caregiver identities, account recovery, hosting and delivery guarantees are future deployment work. Appointment records do not book visits with external clinics. Email previews and SMTP status remain visible. Care plans should reflect the elderly person's preferences and the clinician's instructions.
 
 ## Repository guide
 
 | Path | Purpose |
 |---|---|
+| [`web/care_backend.py`](web/care_backend.py) | CPU care-platform entry point |
+| [`web/care.html`](web/care.html) | Accessible shared profile, medication, appointment and reminder UI |
+| [`docs/15_care_management.md`](docs/15_care_management.md) | Care logic, security and email setup |
+| [`docs/16_accessibility.md`](docs/16_accessibility.md) | Accessibility features and verification |
 | [`notebooks/notebookef04f4f9bb (1).ipynb`](notebooks/notebookef04f4f9bb%20%281%29.ipynb) | Primary Kaggle backend notebook for the demo |
 | [`web/`](web/README.md) | Static interface and local reporting bridge |
 | [`src/behaviorsense/`](src/behaviorsense/) | Perception, models, routine processing, reporting, verification and services |

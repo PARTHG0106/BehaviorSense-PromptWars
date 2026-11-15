@@ -11,9 +11,10 @@
 <link rel="stylesheet" href="styles/tokens.css?v=2026-10-07b">
 <link rel="stylesheet" href="styles/base.css?v=2026-10-07b">
 <link rel="stylesheet" href="styles/components.css?v=2026-10-07b">
+<link rel="stylesheet" href="styles/accessibility.css?v=2026-11-15">
 </head>
 <body>
-<a class="skip" href="#ledger" data-i18n="skipContent">Skip to the report</a>
+<a class="skip" href="#main-content">Skip to main content</a>
 
 <header class="rail">
   <div class="rail__mark">
@@ -21,6 +22,7 @@
     <span class="rail__sub" data-i18n="brandSubtitle">Caregiver reports with checked evidence</span>
   </div>
   <nav class="rail__nav" aria-label="Sections">
+    <a href="http://127.0.0.1:8787/">Care profile &amp; medication plan</a>
     <a href="#ledger" data-i18n="navReport">Report</a>
     <a href="#footage" data-i18n="navFootage">Upload a clip</a>
     <a href="#checks" data-i18n="navEvidence">Evidence checks</a>
@@ -66,7 +68,7 @@
   </div>
 </div>
 
-<main>
+<main id="main-content" tabindex="-1">
 
 <section class="hero">
   <div class="hero__inner">
@@ -516,5 +518,6 @@
 }
 </script>
 <script type="module" src="scripts/main.js?v=2026-10-07b"></script>
+<script type="module" src="scripts/accessibility.js?v=2026-11-15"></script>
 </body>
 </html>

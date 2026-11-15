@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Shared elderly care profiles, prescribed medication schedules, caregiver-confirmed intake and doctor appointments.">
+  <title>BehaviorSense Care — shared medication and appointment plan</title>
+  <link rel="stylesheet" href="styles/tokens.css">
+  <link rel="stylesheet" href="styles/care.css">
+  <link rel="stylesheet" href="styles/accessibility.css">
+</head>
+<body class="care-page">
+<a class="skip" href="#care-main" data-care-text="skip">Skip to the care plan</a>
+<header class="care-header">
+  <a class="care-brand" href="/" aria-label="BehaviorSense Care home">BehaviorSense <span>Care</span></a>
+  <nav aria-label="Care sections">
+    <a href="#today" data-care-text="today">Today</a>
+    <a href="#medications" data-care-text="medications">Medications</a>
+    <a href="#appointments" data-care-text="appointments">Appointments</a>
+    <a href="/activity" data-care-text="observations">Activity observations</a>
+  </nav>
+  <label for="care-language" data-care-text="language">Language</label>
+  <select id="care-language"><option value="en" lang="en">English</option><option value="hi" lang="hi">हिन्दी</option><option value="mr" lang="mr">मराठी</option></select>
+</header>
+<div id="accessibility-controls"></div>
+<main id="care-main" tabindex="-1">
+  <section class="care-intro" aria-labelledby="care-title">
+    <p class="care-kicker" data-care-text="vertical">Elderly care &amp; assisted living</p>
+    <h1 id="care-title" data-care-text="headline">One shared plan for everyday care.</h1>
+    <p data-care-text="intro">Keep prescribed medication, caregiver confirmations and doctor appointments together. Share access with people you trust.</p>
+    <p class="care-notice" data-care-text="scope">Intake is recorded by a caregiver. Video activity predictions stay separate from medication confirmations.</p>
+  </section>
+  <p id="care-status" class="care-status" role="status" aria-live="polite"></p>
+
+  <section id="care-auth" class="care-auth" aria-label="Care profile access">
+    <div class="care-card">
+      <h2 data-care-text="create">Create a care profile</h2>
+      <form id="create-profile" aria-describedby="create-error">
+        <label for="create-name" data-care-text="personName">Person receiving care</label>
+        <input id="create-name" name="name" required maxlength="80" autocomplete="off">
+        <label for="create-caregiver" data-care-text="caregiverName">Your caregiver name</label>
+        <input id="create-caregiver" name="caregiver" required maxlength="80" autocomplete="off">
+        <label for="create-email" data-care-text="email">Reminder email (optional)</label>
+        <input id="create-email" name="email" type="email" maxlength="254" autocomplete="email">
+        <p class="care-help" data-care-text="codeGenerated">A secure access code is generated. Save the profile ID and code to share with your care team.</p>
+        <p id="create-error" class="care-error" role="alert" tabindex="-1" hidden></p>
+        <button type="submit" data-care-text="create">Create a care profile</button>
+      </form>
+    </div>
+    <div class="care-card">
+      <h2 data-care-text="join">Open a shared care profile</h2>
+      <form id="join-profile" aria-describedby="join-help join-error" autocomplete="off">
+        <label for="join-id" data-care-text="profileId">Profile ID</label>
+        <input id="join-id" name="profile_id" required minlength="32" maxlength="32" spellcheck="false" autocomplete="off">
+        <label for="join-code" data-care-text="accessCode">Access code</label>
+        <input id="join-code" name="access_code" type="password" required maxlength="128" autocomplete="off">
+        <label for="join-caregiver" data-care-text="caregiverName">Your caregiver name</label>
+        <input id="join-caregiver" name="caregiver" required maxlength="80" autocomplete="off">
+        <p id="join-help" class="care-help" data-care-text="joinHelp">Ask a trusted care team member for the profile ID and access code.</p>
+        <p id="join-error" class="care-error" role="alert" tabindex="-1" hidden></p>
+        <button type="submit" data-care-text="join">Open a shared care profile</button>
+      </form>
+      <button type="button" class="secondary" id="care-demo" data-care-text="demo">Try a fictional care profile</button>
+    </div>
+  </section>
+
+  <section id="care-workspace" hidden aria-label="Shared care plan">
+    <section class="care-card care-profile" aria-labelledby="profile-heading">
+      <div class="care-section-head"><div><h2 id="profile-heading"></h2><p id="profile-meta"></p></div><div class="care-actions"><button type="button" id="refresh-plan" class="secondary" data-care-text="refresh">Refresh plan</button><button type="button" id="care-logout" class="secondary" data-care-text="logout">Sign out</button></div></div>
+      <div id="share-profile" class="care-share" hidden>
+        <h3 data-care-text="saveAccess">Save this access information</h3>
+        <p data-care-text="shareHelp">Share these details privately with trusted caregivers. The code is shown only when the profile is created.</p>
+        <dl><dt data-care-text="profileId">Profile ID</dt><dd><code id="share-id"></code></dd><dt data-care-text="accessCode">Access code</dt><dd><code id="share-code"></code></dd></dl>
+        <button type="button" id="copy-access" class="secondary" data-care-text="copyAccess">Copy access information</button>
+        <button type="button" id="hide-access" class="secondary" data-care-text="hideAccess">Hide access code</button>
+      </div>
+      <details><summary data-care-text="editProfile">Edit care profile and reminders</summary>
+        <form id="edit-profile" class="care-form-grid" aria-describedby="profile-error">
+          <div><label for="profile-name" data-care-text="personName">Person receiving care</label><input id="profile-name" name="name" required maxlength="80"></div>
+          <div><label for="profile-email" data-care-text="email">Reminder email (optional)</label><input id="profile-email" name="email" type="email" maxlength="254"></div>
+          <div><label for="profile-allergies" data-care-text="allergies">Allergies / important health information</label><textarea id="profile-allergies" name="allergies" rows="3" maxlength="1000"></textarea></div>
+          <div><label for="profile-note" data-care-text="careNotes">Shared care notes</label><textarea id="profile-note" name="care_note" rows="3" maxlength="2000"></textarea></div>
+          <div><label for="profile-zone" data-care-text="timezone">Care plan time zone</label><select id="profile-zone" name="timezone"><option value="Asia/Kolkata">India (Asia/Kolkata)</option><option value="UTC">UTC</option></select><p class="care-help" data-care-text="timeHelp">All medication and appointment times use this care plan time zone.</p></div>
+          <label class="care-checkbox"><input id="profile-reminders" type="checkbox" name="reminders_enabled"><span data-care-text="enableReminders">Enable email reminders</span></label>
+          <p id="profile-error" class="care-error care-full" role="alert" tabindex="-1" hidden></p>
+          <button type="submit" data-care-text="saveProfile">Save care profile</button>
+        </form>
+      </details>
+    </section>
+
+    <section id="today" class="care-card" aria-labelledby="today-heading">
+      <div class="care-section-head"><h2 id="today-heading" data-care-text="todayDoses">Today's medication confirmations</h2><p id="care-day"></p></div>
+      <p class="care-help" data-care-text="confirmationHelp">Confirm only what you or the caregiver know. An overdue confirmation does not establish whether medication was taken.</p>
+      <div id="dose-list" class="care-list"></div>
+    </section>
+
+    <section id="medications" class="care-card" aria-labelledby="medication-heading">
+      <h2 id="medication-heading" data-care-text="medications">Medications</h2>
+      <div id="medication-list" class="care-list"></div>
+      <details id="medication-editor"><summary id="medication-editor-title" data-care-text="addMedication">Add prescribed medication</summary>
+        <form id="medication-form" class="care-form-grid" aria-describedby="medication-help medication-error">
+          <div><label for="medication-name" data-care-text="medicationName">Medication name</label><input id="medication-name" name="name" required maxlength="120"></div>
+          <div><label for="medication-dose" data-care-text="prescribedDose">Prescribed dose</label><input id="medication-dose" name="dose" required maxlength="120"></div>
+          <div><label for="medication-times" data-care-text="doseTimes">Daily times (24-hour, comma-separated)</label><input id="medication-times" name="times" required placeholder="08:00, 20:00" aria-describedby="medication-help"></div>
+          <div><label for="medication-start" data-care-text="startDate">Start date</label><input id="medication-start" name="start_day" type="date" required></div>
+          <div class="care-full"><label for="medication-instructions" data-care-text="instructions">Instructions from the care plan</label><textarea id="medication-instructions" name="instructions" maxlength="600" rows="2"></textarea></div>
+          <label class="care-checkbox"><input id="medication-active" name="active" type="checkbox" checked><span data-care-text="activeMedication">Medication is active</span></label>
+          <p id="medication-help" class="care-help care-full" data-care-text="prescriptionHelp">Enter the medication and dose supplied by the clinician. This app does not prescribe or change doses.</p>
+          <p id="medication-error" class="care-error care-full" role="alert" tabindex="-1" hidden></p>
+          <div class="care-actions"><button type="submit" data-care-text="saveMedication">Save medication</button><button id="cancel-medication-edit" type="button" class="secondary" data-care-text="cancelEdit">Cancel edit</button></div>
+        </form>
+      </details>
+    </section>
+
+    <section id="appointments" class="care-card" aria-labelledby="appointment-heading">
+      <h2 id="appointment-heading" data-care-text="appointments">Appointments</h2>
+      <div id="appointment-list" class="care-list"></div>
+      <details id="appointment-editor"><summary id="appointment-editor-title" data-care-text="addAppointment">Add doctor appointment</summary>
+        <form id="appointment-form" class="care-form-grid" aria-describedby="appointment-help appointment-error">
+          <div><label for="appointment-title" data-care-text="appointmentTitle">Appointment / reason</label><input id="appointment-title" name="title" required maxlength="120"></div>
+          <div><label for="appointment-doctor" data-care-text="doctor">Doctor / care professional</label><input id="appointment-doctor" name="doctor" maxlength="120"></div>
+          <div><label for="appointment-time" data-care-text="appointmentTime">Date and time in the care plan time zone</label><input id="appointment-time" name="local_at" type="datetime-local" required></div>
+          <div><label for="appointment-location" data-care-text="location">Location / visit link</label><input id="appointment-location" name="location" maxlength="250"></div>
+          <div><label for="appointment-status" data-care-text="appointmentStatus">Appointment status</label><select id="appointment-status" name="status"><option value="scheduled" data-care-text="scheduled">Scheduled</option><option value="attended" data-care-text="attended">Attended</option><option value="cancelled" data-care-text="cancelled">Cancelled</option></select></div>
+          <div><label for="appointment-notes" data-care-text="careNotes">Shared care notes</label><textarea id="appointment-notes" name="notes" maxlength="1000" rows="2"></textarea></div>
+          <p id="appointment-help" class="care-help care-full" data-care-text="appointmentHelp">This records your care team's appointment. It does not book a visit with a clinic.</p>
+          <p id="appointment-error" class="care-error care-full" role="alert" tabindex="-1" hidden></p>
+          <div class="care-actions"><button type="submit" data-care-text="saveAppointment">Save appointment</button><button id="cancel-appointment-edit" type="button" class="secondary" data-care-text="cancelEdit">Cancel edit</button></div>
+        </form>
+      </details>
+    </section>
+
+    <section class="care-card" aria-labelledby="reminder-heading">
+      <div class="care-section-head"><h2 id="reminder-heading" data-care-text="reminders">Email reminders</h2><button type="button" id="check-reminders" class="secondary" data-care-text="checkReminders">Check due reminders</button></div>
+      <p id="reminder-mode" class="care-notice"></p>
+      <div id="reminder-list" class="care-list"></div>
+    </section>
+    <section class="care-card" aria-labelledby="history-heading">
+      <h2 id="history-heading" data-care-text="history">Caregiver confirmation history</h2>
+      <div id="care-history"></div>
+    </section>
+  </section>
+</main>
+<footer class="care-footer"><p data-care-text="footer">Care records stay in your care server's private database. Medication confirmations are entered by caregivers.</p><a href="https://github.com/PARTHG0106/BehaviorSense-PromptWars">Project code and setup</a></footer>
+<script type="module" src="scripts/care.js"></script>
+</body>
+</html>

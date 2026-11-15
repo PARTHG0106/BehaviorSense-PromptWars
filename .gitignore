@@ -116,3 +116,4 @@ gallery.json
 /.agents/
 /.vscode/
 /*.zip
+/web/scripts/axe.min.js
