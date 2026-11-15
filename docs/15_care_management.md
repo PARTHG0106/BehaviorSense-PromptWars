@@ -2,6 +2,8 @@
 
 Run `python web/care_backend.py` and open `http://127.0.0.1:8787`. Care profiles, medication schedules, caregiver confirmations, appointments and reminder previews require no GPU or hosted model. Activity observation remains available through the optional Kaggle/local-bridge workflow.
 
+The care homepage is `web/index.html`; `/`, `/index.html` and `/care.html` open that same page. `/activity` and `/activity.html` open the separate observation interface. A short walkthrough and fictional demo make the care workflow available immediately.
+
 ## Profile access and storage
 
 Each profile receives a random 128-bit ID and generated access code. Codes are stored as PBKDF2-HMAC-SHA256 hashes with a random salt and 600,000 rounds. Bearer sessions use random tokens, stored as SHA256 hashes, and expire after 12 hours. Login failures are throttled. Every private API operation derives its profile from the validated token; medication and appointment IDs cannot access another profile.
@@ -13,6 +15,8 @@ The private SQLite database defaults to `data/care.sqlite3`, which is Git-ignore
 Caregivers enter prescribed medication names, doses, instructions, daily times and start dates. The profile time zone is India (`Asia/Kolkata`) or UTC. It is locked after schedules are added, preventing silent reinterpretation of their times.
 
 Taken/skipped confirmations are explicit caregiver reports with a name and timestamp. Repeated confirmations are idempotent; conflicting changes are refused. The original medication name and dose remain in the confirmation history when the prescription is edited or stopped. Predictions from uploaded video never write intake confirmations.
+
+Each confirmation can include an optional caregiver note. The original note is retained on an idempotent retry. The daily summary counts today's current schedule by confirmation status; it includes doses scheduled for later today and does not reconstruct historical adherence from an edited schedule. A print action exposes the current care plan through the browser's print dialog.
 
 An overdue confirmation means no caregiver confirmation is recorded after the schedule's grace period. It does not prove medication was missed. Appointment records support edits, attended status and cancellation within the plan; external clinic booking is outside this prototype.
 

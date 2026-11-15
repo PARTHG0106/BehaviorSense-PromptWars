@@ -12,6 +12,8 @@ Trained model weights and detector weights are obtained from the two public Kagg
 
 The activity/model baseline comes from original commit `778785d2829233cdabe0e0a75da65df7d8d59951`. The [validation record](../results/submission_validation_20261115.md) covers that baseline. The competition snapshot also includes [shared care management](15_care_management.md) and the [accessibility improvements](16_accessibility.md), with separate API and browser tests. The dependency lists explicitly include the multipart upload parser and coordinator HTTP library. The test runner resolves temporary-directory aliases for clean Windows environments.
 
+The final care update makes the care platform the homepage and gives activity reports their own page. It adds a demo walkthrough, daily confirmation counts, immutable caregiver notes and printing. Its [targeted validation](../results/care_submission_validation_20261115.md) passed 61/61 checks and all six browser accessibility views.
+
 Earlier development history remains available in the [original project](https://github.com/PARTHG0106/BehaviorSense). This snapshot starts its own history to keep the submission package small.
 
 ## Check before submitting

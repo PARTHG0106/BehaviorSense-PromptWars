@@ -709,7 +709,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--kaggle", required=True, help="the trycloudflare address notebook 05 printed")
+    ap.add_argument("--kaggle", required=True, help="the trycloudflare address the RGB hybrid serving notebook printed")
     ap.add_argument("--port", type=int, default=PORT)
     ap.add_argument("--model", default=DEFAULT_MODEL)
     ap.add_argument("--token", default="", help="X-BS-Token, if the notebook set BS_TOKEN")

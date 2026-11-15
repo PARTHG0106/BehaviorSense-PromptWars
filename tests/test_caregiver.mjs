@@ -19,7 +19,7 @@ const primary = (html) => html.slice(0, sourceStart(html));
 
 test("caregiver report language, evidence, and asynchronous presentation", async (suite) => {
   await suite.test("daily header and tallies have localized text nodes", () => {
-    const html = readFileSync(new URL("../web/index.html", import.meta.url), "utf8");
+    const html = readFileSync(new URL("../web/activity.html", import.meta.url), "utf8");
     for (const key of ["dailyReport", "resident", "totalClaimsLabel", "shownClaimsLabel", "withheldClaimsLabel"]) {
       assert.ok(html.includes(`data-i18n="${key}"`));
       for (const lang of ["hi", "mr"]) assert.match(t(key, {}, lang), /[\u0900-\u097f]/u);

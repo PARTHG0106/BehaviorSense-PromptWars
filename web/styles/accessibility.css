@@ -26,4 +26,4 @@ html[data-reduce-motion="true"] *,html[data-reduce-motion="true"] *::before,html
 html[data-reduce-motion="true"] .reveal { opacity:1!important; transform:none!important; }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none!important; transition:none!important; scroll-behavior:auto!important; } }
 @media(forced-colors:active) { button,input,select,textarea,.care-card,.care-item { border:2px solid CanvasText; } }
-@media print { .care-header,.a11y-toolbar,.care-actions,form,#care-auth,.care-share,.care-footer { display:none!important; } body,main,.care-card { background:#fff; color:#000; } main { max-width:none; padding:0; } .care-card { break-inside:avoid; } }
+@media print { .care-header,.a11y-toolbar,.care-actions,form,#care-auth,.care-share,.care-footer,.care-tour,.care-intro,#care-status { display:none!important; } body,main,.care-card { background:#fff; color:#000; } main { max-width:none; padding:0; } .care-card { break-inside:avoid; } }

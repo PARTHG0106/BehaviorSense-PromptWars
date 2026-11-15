@@ -10,6 +10,19 @@ The project is an existing research prototype adapted for this competition. This
 
 This public submission repository stays below **10 MB** and uses one `main` branch. It includes the full application code, tests and Kaggle notebook. See the [submission package details](docs/14_competition_submission.md). Model weights are supplied by the public Kaggle datasets listed below.
 
+## Try the care demo in two minutes
+
+From a cloned repository with Python 3.11 or later:
+
+```powershell
+python -m pip install -r requirements-serve.txt
+python web/care_backend.py
+```
+
+Open **http://127.0.0.1:8787** and choose **Try a fictional care profile**. The homepage opens the care platform, with a dose due now and a doctor appointment. The expandable walkthrough guides you through confirmations, notes, medication edits, appointments, reminder previews, accessibility controls and printing. Kaggle and an LLM key are optional for the separate video workflow.
+
+Today's summary counts **taken, skipped, pending and overdue confirmations** from the recorded schedule. Future doses remain pending; a missing confirmation is not counted as a missed medication. An optional caregiver note is saved with each confirmation and remains in the history. Use **Print care plan** for a readable medication, appointment and confirmation record.
+
 ## Competition fit and current scope
 
 The published challenge is **Elderly Care & Medication Management Platform**. BehaviorSense implements its care-management workflow and adds an optional observation and reporting layer.
@@ -25,12 +38,13 @@ The published challenge is **Elderly Care & Medication Management Platform**. Be
 
 Intake records are caregiver reports. Video predictions do not create medication confirmations. An overdue confirmation means the care team needs to check the plan; it does not prove that a person missed a dose.
 
-![Shared care profile, medication confirmation and accessible display controls using fictional demo data](docs/images/care-overview.png)
+![Fictional care profile showing daily confirmation counts and caregiver notes](docs/images/care-overview.png)
 
 ## What you can demonstrate
 
 - Create a private care profile and share its ID and access code with a trusted caregiver.
 - Add or edit prescribed medications and daily dose times; confirm taken or skipped doses and inspect their history.
+- Inspect today's confirmation counts, record a caregiver note and print the care plan for a visit.
 - Keep doctor appointments, update attendance and inspect due reminder previews.
 - Choose English, Hindi or Marathi; increase text size, enable high contrast or reduce motion.
 - Upload a video and inspect tracked people, activity segments, and the outputs of each processing stage.
@@ -122,7 +136,7 @@ Select **GPU T4 x2** and **Internet On**, then add these two public datasets:
 
 Run the notebook cells in order. They verify the bundled files, install the GPU dependencies, and test the required model forwards on **both** T4 GPUs before starting the API.
 
-For live demo access control, set `BS_TOKEN` to a private value before running the notebook's service-configuration cell, then pass the same value to the local bridge with `--token`. This is a shared backend token; per-person healthcare-profile permissions remain pending.
+For live demo access control, set `BS_TOKEN` to a private value before running the notebook's service-configuration cell, then pass the same value to the local bridge with `--token`. This token protects the GPU backend. The care platform separately uses authenticated, profile-scoped sessions.
 
 Keep the final cell running. It prints a command containing a link such as:
 
@@ -157,7 +171,7 @@ The activity page can also be served independently. In a second terminal from th
 python -m http.server 5173 --bind 127.0.0.1 --directory web
 ```
 
-Open **http://127.0.0.1:5173** and connect the page's backend field to **http://127.0.0.1:8899**. Upload a clip, inspect the processing stages, and choose the caregiver report language.
+Open **http://127.0.0.1:5173/activity.html** and connect the page's backend field to **http://127.0.0.1:8899**. Upload a clip, inspect the processing stages, and choose the caregiver report language. Care-profile actions need the care server on port 8787.
 
 The Cloudflare address belongs in the `--kaggle` command. The web page connects to your **local bridge**.
 
@@ -195,8 +209,8 @@ The caregiver view withholds structured claims that fail these checks. The brows
 | Fitting-coverage study | mAP **41.44% → 58.25%**, pair F1 **4.53% → 13.88%**. Exploratory subject-separated coverage comparison; its advancement gate failed. [Report](results/rgb_fitting_coverage_20261016.md) |
 | Supplied Kaggle notebook | Successful model-forward smoke checks on **two Tesla T4 GPUs using FP32**, plus backend startup. [Recorded evidence](results/kaggle_backend_smoke_20261115.md) |
 | Local submission validation | 49 suites covered; **910/910 reported tests passed**, with 5 skipped, across the full run and corrective reruns. [Validation record](results/submission_validation_20261115.md) |
-| Care-platform validation | **17/17 tests passed** for access isolation, session expiry, concurrent edits, intake records, reminder deduplication, preview-to-SMTP transition, SMTP safety and private storage |
-| Accessibility validation | **Zero axe violations across six audited views**; keyboard skip navigation, explicit intake, three languages, large text, high contrast and 320-pixel reflow checked. [Audit](results/accessibility_20261115.md) |
+| Care-platform validation | **19/19 tests passed** for access isolation, session expiry, concurrent edits, immutable intake notes, page routes, reminder deduplication, preview-to-SMTP transition, SMTP safety and private storage. [Final care checks](results/care_submission_validation_20261115.md) |
+| Accessibility validation | **Zero axe violations across six audited views**; keyboard skip navigation, confirmation notes, daily counts, medication creation, appointment attendance, printing, navigation, three languages, large text, high contrast and 320-pixel reflow checked. [Audit](results/accessibility_20261115.md) |
 | Behaviour-layer simulation | 24/24 targeted anomaly cases detected; median latency 4 days; 5.07 false alerts per 100 control resident-days. Synthetic scenarios, not clinical validation. [Report](results/behaviour_eval.md) |
 
 The original RGB accuracy benchmark used a different GPU and BF16 feature extraction. The T4 smoke checks confirm startup and model execution; they do not establish the accuracy of this FP32 tracked-person adapter. Earlier validation/test inspection also limits independent generalization claims.
@@ -245,7 +259,8 @@ The care platform is a local prototype with shared access codes. Individual clin
 | Path | Purpose |
 |---|---|
 | [`web/care_backend.py`](web/care_backend.py) | CPU care-platform entry point |
-| [`web/care.html`](web/care.html) | Accessible shared profile, medication, appointment and reminder UI |
+| [`web/index.html`](web/index.html) | Care homepage: shared profile, medication, appointment and reminder UI |
+| [`web/activity.html`](web/activity.html) | Optional video observations and evidence-checked reports |
 | [`docs/15_care_management.md`](docs/15_care_management.md) | Care logic, security and email setup |
 | [`docs/16_accessibility.md`](docs/16_accessibility.md) | Accessibility features and verification |
 | [`notebooks/notebookef04f4f9bb (1).ipynb`](notebooks/notebookef04f4f9bb%20%281%29.ipynb) | Primary Kaggle backend notebook for the demo |

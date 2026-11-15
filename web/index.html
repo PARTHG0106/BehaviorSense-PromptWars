@@ -1,523 +1,158 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BehaviorSense — caregiver reports with checked evidence</title>
-<meta name="description" content="A research prototype for identity-aware behaviour monitoring. Caregiver reports pair readable summaries with structured claims checked against recorded evidence.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles/tokens.css?v=2026-10-07b">
-<link rel="stylesheet" href="styles/base.css?v=2026-10-07b">
-<link rel="stylesheet" href="styles/components.css?v=2026-10-07b">
-<link rel="stylesheet" href="styles/accessibility.css?v=2026-11-15">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Shared elderly care profiles, prescribed medication schedules, caregiver-confirmed intake and doctor appointments.">
+  <title>BehaviorSense Care — shared medication and appointment plan</title>
+  <link rel="stylesheet" href="styles/tokens.css">
+  <link rel="stylesheet" href="styles/care.css">
+  <link rel="stylesheet" href="styles/accessibility.css">
 </head>
-<body>
-<a class="skip" href="#main-content">Skip to main content</a>
-
-<header class="rail">
-  <div class="rail__mark">
-    <span class="rail__name">BehaviorSense</span>
-    <span class="rail__sub" data-i18n="brandSubtitle">Caregiver reports with checked evidence</span>
-  </div>
-  <nav class="rail__nav" aria-label="Sections">
-    <a href="http://127.0.0.1:8787/">Care profile &amp; medication plan</a>
-    <a href="#ledger" data-i18n="navReport">Report</a>
-    <a href="#footage" data-i18n="navFootage">Upload a clip</a>
-    <a href="#checks" data-i18n="navEvidence">Evidence checks</a>
-    <a href="#pipeline" data-i18n="navPipeline">How it works</a>
-    <a href="#measurements" data-i18n="navResults">Results</a>
+<body class="care-page">
+<a class="skip" href="#care-main" data-care-text="skip">Skip to the care plan</a>
+<header class="care-header">
+  <a class="care-brand" href="/" aria-label="BehaviorSense Care home">BehaviorSense <span>Care</span></a>
+  <nav aria-label="Care sections">
+    <a href="#today" data-care-text="today">Today</a>
+    <a href="#medications" data-care-text="medications">Medications</a>
+    <a href="#appointments" data-care-text="appointments">Appointments</a>
+    <a href="activity.html" data-care-text="observations">Activity observations</a>
   </nav>
-  <div class="rail__language" id="report-language" role="group" aria-labelledby="report-language-label">
-    <span class="visually-hidden" id="report-language-label" data-i18n="languageLabel">Report language</span>
-    <button type="button" class="rail__language-button" data-report-language="en" lang="en" aria-pressed="true">English</button>
-    <button type="button" class="rail__language-button" data-report-language="hi" lang="hi" aria-pressed="false">हिन्दी</button>
-    <button type="button" class="rail__language-button" data-report-language="mr" lang="mr" aria-pressed="false">मराठी</button>
-  </div>
-  <button class="conn" id="conn" data-mode="replay" type="button"
-          aria-expanded="false" aria-controls="dock">
-    <span class="conn__dot" aria-hidden="true"></span>
-    <span class="conn__text">Replay</span>
-  </button>
+  <label for="care-language" data-care-text="language">Language</label>
+  <select id="care-language"><option value="en" lang="en">English</option><option value="hi" lang="hi">हिन्दी</option><option value="mr" lang="mr">मराठी</option></select>
 </header>
+<div id="accessibility-controls"></div>
+<main id="care-main" tabindex="-1">
+  <section class="care-intro" aria-labelledby="care-title">
+    <p class="care-kicker" data-care-text="vertical">Elderly care &amp; assisted living</p>
+    <h1 id="care-title" data-care-text="headline">One shared plan for everyday care.</h1>
+    <p data-care-text="intro">Keep prescribed medication, caregiver confirmations and doctor appointments together. Share access with people you trust.</p>
+    <p class="care-notice" data-care-text="scope">Intake is recorded by a caregiver. Video activity predictions stay separate from medication confirmations.</p>
+  </section>
+  <p id="care-status" class="care-status" role="status" aria-live="polite"></p>
+  <details class="care-card care-tour">
+    <summary data-care-text="demoGuide">Try the care workflow in two minutes</summary>
+    <ol>
+      <li data-care-text="demoStep1">Choose “Try a fictional care profile” below. It creates a private example with a dose due now and an appointment.</li>
+      <li data-care-text="demoStep2">Record a taken or skipped confirmation, with an optional note. Check today's counts and the history.</li>
+      <li data-care-text="demoStep3">Add or edit a prescribed medication, then update the doctor appointment.</li>
+      <li data-care-text="demoStep4">Review email reminder previews, switch languages, and try the large-text or high-contrast controls.</li>
+      <li data-care-text="demoStep5">Print the care plan for a visit. Open Activity observations to explore the optional evidence-checked video reports.</li>
+    </ol>
+  </details>
 
-<!-- The local bridge forwards perception to Kaggle and keeps reporting credentials on
-     the operator's machine. Connection settings remain in an inline panel. -->
-<div class="dock" id="dock" hidden>
-  <div class="dock__inner">
-    <div class="dock__copy">
-      <p class="dock__title" data-i18n="backendHeading">Connect the inference backend</p>
-      <p class="dock__note" data-i18n="backendIntro">Connect to the local bridge at http://127.0.0.1:8899. It sends the clip to the Kaggle GPU and asks a hosted model to write from structured evidence. Reporting keys stay on the operator's machine.</p>
-      <p class="dock__note dock__help" data-i18n="backendHelp">For setup, run notebook 05, then start web/local_backend.py with its tunnel address using --kaggle. Enter the local bridge address here. The optional token is for a direct connection to a protected notebook.</p>
+  <section id="care-auth" class="care-auth" aria-label="Care profile access">
+    <div class="care-card">
+      <h2 data-care-text="create">Create a care profile</h2>
+      <form id="create-profile" aria-describedby="create-error">
+        <label for="create-name" data-care-text="personName">Person receiving care</label>
+        <input id="create-name" name="name" required maxlength="80" autocomplete="off">
+        <label for="create-caregiver" data-care-text="caregiverName">Your caregiver name</label>
+        <input id="create-caregiver" name="caregiver" required maxlength="80" autocomplete="off">
+        <label for="create-email" data-care-text="email">Reminder email (optional)</label>
+        <input id="create-email" name="email" type="email" maxlength="254" autocomplete="email">
+        <p class="care-help" data-care-text="codeGenerated">A secure access code is generated. Save the profile ID and code to share with your care team.</p>
+        <p id="create-error" class="care-error" role="alert" tabindex="-1" hidden></p>
+        <button type="submit" data-care-text="create">Create a care profile</button>
+      </form>
     </div>
-    <form class="dock__form" id="dock-form" autocomplete="off">
-      <label class="dock__label" for="api-url" data-i18n="backendLabel">Backend address</label>
-      <input class="dock__input" id="api-url" type="url" spellcheck="false"
-             placeholder="http://127.0.0.1:8899" data-i18n-placeholder="backendUrlPlaceholder">
-      <label class="dock__label" for="api-token" data-i18n="tokenLabel">Token (optional)</label>
-      <input class="dock__input" id="api-token" type="password" spellcheck="false"
-             placeholder="For a protected direct notebook connection" data-i18n-placeholder="tokenPlaceholder">
-      <div class="dock__actions">
-        <button class="btn" type="submit" id="dock-connect" data-i18n="connect">Connect</button>
-        <button class="btn btn--quiet" type="button" id="dock-forget" data-i18n="forget">Forget</button>
-      </div>
-      <p class="dock__status" id="dock-status" role="status" aria-live="polite">
-        Not connected. The ledger below is replaying a stored day.</p>
-    </form>
-  </div>
-</div>
-
-<main id="main-content" tabindex="-1">
-
-<section class="hero">
-  <div class="hero__inner">
-    <div class="hero__intro">
-      <p class="eyebrow" data-i18n="reportEyebrow">Behaviour monitoring &middot; research prototype</p>
-      <h1 class="display" data-i18n="reportHeadline">Daily care report</h1>
-      <p class="standfirst" data-i18n="reportIntro">Review observations, suggested care, and findings checked against recorded evidence.</p>
+    <div class="care-card">
+      <h2 data-care-text="join">Open a shared care profile</h2>
+      <form id="join-profile" aria-describedby="join-help join-error" autocomplete="off">
+        <label for="join-id" data-care-text="profileId">Profile ID</label>
+        <input id="join-id" name="profile_id" required minlength="32" maxlength="32" spellcheck="false" autocomplete="off">
+        <label for="join-code" data-care-text="accessCode">Access code</label>
+        <input id="join-code" name="access_code" type="password" required maxlength="128" autocomplete="off">
+        <label for="join-caregiver" data-care-text="caregiverName">Your caregiver name</label>
+        <input id="join-caregiver" name="caregiver" required maxlength="80" autocomplete="off">
+        <p id="join-help" class="care-help" data-care-text="joinHelp">Ask a trusted care team member for the profile ID and access code.</p>
+        <p id="join-error" class="care-error" role="alert" tabindex="-1" hidden></p>
+        <button type="submit" data-care-text="join">Open a shared care profile</button>
+      </form>
+      <button type="button" class="secondary" id="care-demo" data-care-text="demo">Try a fictional care profile</button>
     </div>
+  </section>
 
-    <div class="ledger" id="ledger">
-      <div class="ledger__head">
-        <div class="ledger__id">
-          <p class="eyebrow eyebrow--bare" data-i18n="dailyReport">Daily report</p>
-          <p class="ledger__who" id="ledger-who"><span data-i18n="resident">Resident</span> &middot;
-            <time datetime="2026-02-22" id="ledger-day">22 February 2026</time></p>
-        </div>
-        <dl class="tally">
-          <div class="tally__cell"><dt data-i18n="totalClaimsLabel">Claims</dt><dd id="t-total">&mdash;</dd></div>
-          <div class="tally__cell"><dt data-i18n="shownClaimsLabel">Shown</dt><dd id="t-shown">&mdash;</dd></div>
-          <div class="tally__cell tally__cell--pencil"><dt data-i18n="withheldClaimsLabel">Withheld</dt><dd id="t-withheld">&mdash;</dd></div>
-        </dl>
+  <section id="care-workspace" hidden aria-label="Shared care plan">
+    <section class="care-card care-profile" aria-labelledby="profile-heading">
+      <div class="care-section-head"><div><h2 id="profile-heading"></h2><p id="profile-meta"></p></div><div class="care-actions"><button type="button" id="print-plan" class="secondary" data-care-text="printPlan">Print care plan</button><button type="button" id="refresh-plan" class="secondary" data-care-text="refresh">Refresh plan</button><button type="button" id="care-logout" class="secondary" data-care-text="logout">Sign out</button></div></div>
+      <div id="share-profile" class="care-share" hidden>
+        <h3 data-care-text="saveAccess">Save this access information</h3>
+        <p data-care-text="shareHelp">Share these details privately with trusted caregivers. The code is shown only when the profile is created.</p>
+        <dl><dt data-care-text="profileId">Profile ID</dt><dd><code id="share-id"></code></dd><dt data-care-text="accessCode">Access code</dt><dd><code id="share-code"></code></dd></dl>
+        <button type="button" id="copy-access" class="secondary" data-care-text="copyAccess">Copy access information</button>
+        <button type="button" id="hide-access" class="secondary" data-care-text="hideAccess">Hide access code</button>
       </div>
-
-      <!-- Only meaningful once a backend answers, so it stays out of the way until then. -->
-      <p class="ledger__live" id="ledger-live" hidden></p>
-
-      <section class="caregiver-host" id="caregiver-ledger" aria-label="Caregiver report"></section>
-
-      <details class="report-audit" lang="en">
-        <summary data-i18n="auditDetails">Evidence and original English report</summary>
-        <p class="report-audit__scope" data-i18n="originalProseLabel">Original model summary and recommendation. These paragraphs are not verified by C1–C5.</p>
-        <p class="ledger__summary" id="summary"></p>
-        <ol class="slips" id="slips" aria-live="polite"></ol>
-        <p class="ledger__note" id="ledger-note">The checks below each claim are the real
-          arithmetic, run in your browser against the same evidence table the model was
-          given. Faults are injected here so the checks are visible &mdash; in the measured
-          run, the language model failed <b>2.8&ndash;3.7%</b> of its claims unprompted.</p>
+      <details><summary data-care-text="editProfile">Edit care profile and reminders</summary>
+        <form id="edit-profile" class="care-form-grid" aria-describedby="profile-error">
+          <div><label for="profile-name" data-care-text="personName">Person receiving care</label><input id="profile-name" name="name" required maxlength="80"></div>
+          <div><label for="profile-email" data-care-text="email">Reminder email (optional)</label><input id="profile-email" name="email" type="email" maxlength="254"></div>
+          <div><label for="profile-allergies" data-care-text="allergies">Allergies / important health information</label><textarea id="profile-allergies" name="allergies" rows="3" maxlength="1000"></textarea></div>
+          <div><label for="profile-note" data-care-text="careNotes">Shared care notes</label><textarea id="profile-note" name="care_note" rows="3" maxlength="2000"></textarea></div>
+          <div><label for="profile-zone" data-care-text="timezone">Care plan time zone</label><select id="profile-zone" name="timezone"><option value="Asia/Kolkata">India (Asia/Kolkata)</option><option value="UTC">UTC</option></select><p class="care-help" data-care-text="timeHelp">All medication and appointment times use this care plan time zone.</p></div>
+          <label class="care-checkbox"><input id="profile-reminders" type="checkbox" name="reminders_enabled"><span data-care-text="enableReminders">Enable email reminders</span></label>
+          <p id="profile-error" class="care-error care-full" role="alert" tabindex="-1" hidden></p>
+          <button type="submit" data-care-text="saveProfile">Save care profile</button>
+        </form>
       </details>
+    </section>
 
-      <div class="ledger__foot">
-        <div class="controls" role="group" aria-label="Choose what the ledger shows">
-          <span class="controls__label" data-i18n="injectFaults">Demo faults</span>
-          <button type="button" class="chip" data-rate="0" data-i18n="faultNone">None</button>
-          <button type="button" class="chip" data-rate="0.34" aria-pressed="true" data-i18n="faultSome">1 in 3</button>
-          <button type="button" class="chip" data-rate="1" data-i18n="faultAll">Every claim</button>
-          <button type="button" class="chip chip--live" id="chip-live" hidden
-                  data-live="1" data-i18n="liveGenerate">Generate live</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
+    <section id="today" class="care-card" aria-labelledby="today-heading">
+      <div class="care-section-head"><h2 id="today-heading" data-care-text="todayDoses">Today's medication confirmations</h2><p id="care-day"></p></div>
+      <p class="care-help" data-care-text="confirmationHelp">Confirm only what you or the caregiver know. An overdue confirmation does not establish whether medication was taken.</p>
+      <div id="daily-confirmations" class="care-daily" role="status" aria-live="polite"></div>
+      <div id="dose-list" class="care-list"></div>
+    </section>
 
-<section class="band" id="checks">
-  <div class="band__inner">
-    <header class="band__head">
-      <p class="eyebrow">The verifier</p>
-      <h2 class="h2">Five checks, and not one of them asks a language model.</h2>
-      <p class="lede">Using a model to check a model shares its blind spots. These are
-        arithmetic: they resolve a citation, compare two numbers, recompute a percentage,
-        read the sign of a change, and ask whether the sentence quotes the figure at all.
-        Counts are from 1,120 claims generated in the latest measured run.</p>
-    </header>
+    <section id="medications" class="care-card" aria-labelledby="medication-heading">
+      <h2 id="medication-heading" data-care-text="medications">Medications</h2>
+      <div id="medication-list" class="care-list"></div>
+      <details id="medication-editor"><summary id="medication-editor-title" data-care-text="addMedication">Add prescribed medication</summary>
+        <form id="medication-form" class="care-form-grid" aria-describedby="medication-help medication-error">
+          <div><label for="medication-name" data-care-text="medicationName">Medication name</label><input id="medication-name" name="name" required maxlength="120"></div>
+          <div><label for="medication-dose" data-care-text="prescribedDose">Prescribed dose</label><input id="medication-dose" name="dose" required maxlength="120"></div>
+          <div><label for="medication-times" data-care-text="doseTimes">Daily times (24-hour, comma-separated)</label><input id="medication-times" name="times" required placeholder="08:00, 20:00" aria-describedby="medication-help"></div>
+          <div><label for="medication-start" data-care-text="startDate">Start date</label><input id="medication-start" name="start_day" type="date" required></div>
+          <div class="care-full"><label for="medication-instructions" data-care-text="instructions">Instructions from the care plan</label><textarea id="medication-instructions" name="instructions" maxlength="600" rows="2"></textarea></div>
+          <label class="care-checkbox"><input id="medication-active" name="active" type="checkbox" checked><span data-care-text="activeMedication">Medication is active</span></label>
+          <p id="medication-help" class="care-help care-full" data-care-text="prescriptionHelp">Enter the medication and dose supplied by the clinician. This app does not prescribe or change doses.</p>
+          <p id="medication-error" class="care-error care-full" role="alert" tabindex="-1" hidden></p>
+          <div class="care-actions"><button type="submit" data-care-text="saveMedication">Save medication</button><button id="cancel-medication-edit" type="button" class="secondary" data-care-text="cancelEdit">Cancel edit</button></div>
+        </form>
+      </details>
+    </section>
 
-    <ol class="checks">
-      <li class="check">
-        <p class="check__id">C1</p>
-        <h3 class="check__name">Citation resolves</h3>
-        <p class="check__q">Does the cited evidence row exist for this day?</p>
-        <p class="check__n"><b>1</b> failure</p>
-        <p class="check__note">The model is handed resolvable references rather than asked
-          to compose them &mdash; one fabrication in five runs, against zero in every run
-          before. A design choice doing real work, not a property of the model.</p>
-      </li>
-      <li class="check">
-        <p class="check__id">C2</p>
-        <h3 class="check__name">Value matches</h3>
-        <p class="check__q">Is the quoted number the recorded one, within 2%?</p>
-        <p class="check__n"><b>0</b> failures</p>
-        <p class="check__note">This used to be nearly the whole residual &mdash; 39&ndash;42
-          per run, the model restating a number it had been given. The prompt now carries a
-          filled template to copy from, and field misquotes went to zero.</p>
-      </li>
-      <li class="check">
-        <p class="check__id">C3</p>
-        <h3 class="check__name">Percentage survives</h3>
-        <p class="check__q">Does the quoted change hold up when recomputed, within 2 points?</p>
-        <p class="check__n"><b>0</b> failures</p>
-        <p class="check__note">A percentage against a zero baseline is undefined, not 0%.
-          Quoting one there is itself a failure.</p>
-      </li>
-      <li class="check check--sharp">
-        <p class="check__id">C4</p>
-        <h3 class="check__name">Direction agrees</h3>
-        <p class="check__q">Does the sentence match the sign of the change?</p>
-        <p class="check__n"><b>13</b> failures</p>
-        <p class="check__note">The dangerous one. &ldquo;Walking improved to 700&nbsp;s&rdquo;
-          quotes the right figure and inverts the meaning &mdash; C1 to C3 all pass it, and
-          a caregiver remembers the sentence, not the caveat.</p>
-      </li>
-      <li class="check">
-        <p class="check__id">C5</p>
-        <h3 class="check__name">Prose quotes the figure</h3>
-        <p class="check__q">Does the sentence contain the number the field records?</p>
-        <p class="check__n"><b>22</b> failures</p>
-        <p class="check__note">The newest, and now the largest category. The field can be
-          exactly right while the sentence says &ldquo;fell noticeably&rdquo; &mdash; C2 is
-          blind to that by construction, because it compares field against row and both
-          agree. The sentence is what a caregiver reads.</p>
-      </li>
-    </ol>
-  </div>
-</section>
-<!-- All four agents on footage you supply, each stage's own output shown where it was
-     produced, then C1-C5 on every claim. Agent 3's baseline is a DECLARED simulated
-     reference and the payload says so on every affected number: one clip cannot supply a
-     multi-day rolling median, and a reference-relative z-score read as this person's decline is
-     the confusion the verification layer exists to prevent. -->
-<section class="band" id="footage">
-  <div class="band__inner">
-    <header class="band__head">
-      <p class="eyebrow" data-i18n="footageEyebrow">On your own footage</p>
-      <h2 class="h2" data-i18n="footageHeading">Upload a clip to see the observations and caregiver report.</h2>
-      <p class="lede" data-i18n="uploadIntro">Choose a video to see the recorded activities and a caregiver report. The report shows which findings passed the evidence checks.</p>
-    </header>
+    <section id="appointments" class="care-card" aria-labelledby="appointment-heading">
+      <h2 id="appointment-heading" data-care-text="appointments">Appointments</h2>
+      <div id="appointment-list" class="care-list"></div>
+      <details id="appointment-editor"><summary id="appointment-editor-title" data-care-text="addAppointment">Add doctor appointment</summary>
+        <form id="appointment-form" class="care-form-grid" aria-describedby="appointment-help appointment-error">
+          <div><label for="appointment-title" data-care-text="appointmentTitle">Appointment / reason</label><input id="appointment-title" name="title" required maxlength="120"></div>
+          <div><label for="appointment-doctor" data-care-text="doctor">Doctor / care professional</label><input id="appointment-doctor" name="doctor" maxlength="120"></div>
+          <div><label for="appointment-time" data-care-text="appointmentTime">Date and time in the care plan time zone</label><input id="appointment-time" name="local_at" type="datetime-local" required></div>
+          <div><label for="appointment-location" data-care-text="location">Location / visit link</label><input id="appointment-location" name="location" maxlength="250"></div>
+          <div><label for="appointment-status" data-care-text="appointmentStatus">Appointment status</label><select id="appointment-status" name="status"><option value="scheduled" data-care-text="scheduled">Scheduled</option><option value="attended" data-care-text="attended">Attended</option><option value="cancelled" data-care-text="cancelled">Cancelled</option></select></div>
+          <div><label for="appointment-notes" data-care-text="careNotes">Shared care notes</label><textarea id="appointment-notes" name="notes" maxlength="1000" rows="2"></textarea></div>
+          <p id="appointment-help" class="care-help care-full" data-care-text="appointmentHelp">This records your care team's appointment. It does not book a visit with a clinic.</p>
+          <p id="appointment-error" class="care-error care-full" role="alert" tabindex="-1" hidden></p>
+          <div class="care-actions"><button type="submit" data-care-text="saveAppointment">Save appointment</button><button id="cancel-appointment-edit" type="button" class="secondary" data-care-text="cancelEdit">Cancel edit</button></div>
+        </form>
+      </details>
+    </section>
 
-    <div class="clip" id="upload" data-ready="0">
-      <div class="clip__drop" id="clip-drop">
-        <p class="clip__cue" data-i18n="dropClip">Drop a clip here, or</p>
-        <label class="btn" for="clip-input" data-i18n="chooseFile">Choose a file</label>
-        <input class="visually-hidden" id="clip-input" type="file" accept="video/*" multiple aria-describedby="clip-limits clip-status">
-        <p class="clip__hint" id="clip-limits">Select one or two clips, each up to 100 MB and 36,000 retained frames (about 30 minutes at 20 Hz). Clips beyond these limits are refused.</p>
-        <p class="clip__enrol">
-          <label for="clip-enrol" data-i18n="enrolSubject">Enrol the subject as</label>
-          <input id="clip-enrol" type="text" maxlength="40" autocomplete="off"
-                 placeholder="Leave empty to just analyse" data-i18n-placeholder="enrolPlaceholder" aria-describedby="enrol-disclosure">
-        </p>
-        <p class="clip__enrol-hint" id="enrol-disclosure" data-i18n="enrolDisclosure">Optional enrollment saves the subject's name and an identity embedding on this machine. Saved names, roles and embeddings are sent to Kaggle for matching on later uploads. To forget enrollment, stop the bridge, delete its gallery file and restart it.</p>
-      </div>
-
-      <div class="clip-jobs" id="clip-jobs" role="group" aria-label="Selected clips" hidden></div>
-      <div class="clip__stage" id="clip-stage" hidden>
-        <div class="clip__frame">
-          <video id="clip-video" playsinline controls muted loop></video>
-          <canvas id="clip-canvas" aria-hidden="true"></canvas>
-        </div>
-        <p class="clip__meta" id="clip-meta"></p>
-        <section class="caregiver-host" id="caregiver-video" aria-label="Caregiver report from this clip" hidden></section>
-        <div class="clip__pipeline" id="clip-pipeline"></div>
-        <div class="clip__checks" id="clip-checks"></div>
-      </div>
-
-      <p class="clip__status" id="clip-status" role="status" aria-live="polite">
-        Connect a backend to analyse a clip.</p>
-
-      <p class="clip__caveat" data-i18n="uploadCaution">Activity values come from this clip. Comparisons use a simulated reference, not this person's recorded daily history. A short clip cannot establish a personal daily decline.</p>
-    </div>
-  </div>
-</section>
-
-<section class="band band--well" id="pipeline">
-  <div class="band__inner">
-    <header class="band__head">
-      <p class="eyebrow">The pipeline</p>
-      <h2 class="h2">Four agents, and one boundary the whole design rests on.</h2>
-      <p class="lede">Agents do not call each other. They hand over versioned schema
-        objects, each one persisted and independently replayable. The seam names below are
-        the actual types.</p>
-    </header>
-
-    <ol class="stages">
-      <li class="stage">
-        <p class="stage__n">Agent 1</p>
-        <h3 class="stage__name">Perception</h3>
-        <p class="stage__body">RTMO pose, tracking, and open-set re-identification, so a
-          measurement belongs to a person rather than to a box on screen. Strangers are
-          rejected at a fitted threshold instead of being enrolled by accident.</p>
-        <p class="seam"><span>emits</span> <code>PersonObservation</code></p>
-      </li>
-      <li class="stage">
-        <p class="stage__n">Agent 2</p>
-        <h3 class="stage__name">Activity</h3>
-        <p class="stage__body">A ST&#8209;GCN++ ensemble over 30-frame skeleton windows,
-          temperature-calibrated so its confidence means something, then smoothed into segments.
-          The served configuration uses the bone stream alone &mdash; selected on validation,
-          where averaging all four streams traded tail recall for head accuracy.</p>
-        <p class="seam"><span>emits</span> <code>ActivitySegment</code></p>
-      </li>
-      <li class="stage">
-        <p class="stage__n">Agent 3</p>
-        <h3 class="stage__name">Behaviour</h3>
-        <p class="stage__body">Fourteen-day robust baselines per person, drift detection, and
-          ten alert rules. Statistical rather than learned, because a decline has to be
-          explainable to the person acting on it.</p>
-        <p class="seam"><span>emits</span> <code>BehaviourState</code></p>
-      </li>
-      <li class="stage stage--gate">
-        <p class="stage__n">Agent 4</p>
-        <h3 class="stage__name">Report</h3>
-        <p class="stage__body">Writes a summary, recommendation and separate citable claims.
-          C1&ndash;C5 check the structured claims; the summary and recommendation remain
-          unverified model prose.</p>
-        <p class="seam"><span>emits</span> <code>CaregiverReport</code></p>
-      </li>
-    </ol>
-
-    <p class="boundary">The reporting model receives a <code>BehaviourState</code>: numbers,
-      baselines, deviations and alerts. Uploaded video goes to the perception pipeline on
-      Kaggle. Only structured evidence is sent to the reporting provider, and accepted
-      claims must pass C1&ndash;C5. The report's free-text summary and recommendation are
-      outside those checks.</p>
-  </div>
-</section>
-
-<section class="band" id="measurements">
-  <div class="band__inner">
-    <header class="band__head">
-      <p class="eyebrow">Measurements</p>
-      <h2 class="h2">Every figure here came off a GPU, including the unflattering ones.</h2>
-      <p class="lede">Training and evaluation run offline on Kaggle. Where a number is
-        weak it is printed weak, because a results table that only contains good news
-        cannot be checked.</p>
-    </header>
-
-    <div class="readouts">
-      <article class="readout">
-        <p class="readout__label">Fall detection</p>
-        <p class="readout__fig">0.822<span class="readout__unit">AUPRC</span></p>
-        <ul class="readout__rows">
-          <li><span>Sensitivity</span><b>0.951</b></li>
-          <li><span>False alarms</span><b>0.99 / hour</b></li>
-          <li><span>Source-stratified AUROC, 4 corpora</span><b>0.928&ndash;0.991</b></li>
-        </ul>
-        <p class="readout__note">AUPRC, not AUROC &mdash; at a 0.49% positive rate AUROC
-          flatters. The 0.928&ndash;0.991 range is one binary checkpoint scored on each
-          source&rsquo;s shards, which include training windows; it is <em>not</em> a
-          leave-one-corpus-out transfer estimate, and the fitted operating point has not
-          been validated on an unseen recording setup. The 20-class activity
-          ensemble&rsquo;s own fall posterior sits at 0.47&ndash;0.60 on the same folds,
-          which is why the two-model design exists.</p>
-      </article>
-
-      <article class="readout">
-        <p class="readout__label">Activity recognition</p>
-        <p class="readout__fig">0.187<span class="readout__unit">mean-class, 20 classes</span></p>
-        <ul class="readout__rows">
-          <li><span>Best single stream</span><b>bone</b></li>
-          <li><span>Best macro&#8209;F1 (deployed)</span><b>0.146</b></li>
-          <li><span>Ensemble top&#8209;1 / macro&#8209;F1</span><b>0.375 / 0.128</b></li>
-          <li><span>Chance</span><b>0.050</b></li>
-          <li><span>Toyota CS, 3D historical (13 cls)</span><b>0.736</b></li>
-          <li><span>Toyota RTMO, served (15 cls)</span><b>0.600</b></li>
-        </ul>
-        <p class="readout__note is-weak">The weak result is the hard protocol: Charades,
-          measured actor-disjoint over 41 held-out actors. On the metric the behaviour layer
-          actually consumes, <code>bone</code> alone wins macro&#8209;F1 (0.146) and ties
-          mean-class (0.187); the four-stream ensemble buys top&#8209;1 but loses 1.8
-          macro&#8209;F1 points, so the served configuration drops the ensemble. Four
-          classes have no skeleton-visible evidence at all &mdash; a pill bottle and a
-          phone are the same pose &mdash; which is why object context is part of the
-          architecture rather than an afterthought. The Toyota row carries two
-          numbers, not one: <b>0.736</b> is the historical 3D head on INRIA poses,
-          <em>test&#8209;selected</em> on the CS test subjects (epoch 48 of 60, picked by
-          their score); <b>0.600</b> is the served RTMO checkpoint, 22 classes, 20 Hz,
-          over the 15 classes present in its test partition. They differ in input,
-          checkpoint, selection protocol and class support, so their gap does not isolate
-          the cost of live pose extraction. Both are in <code>results/evaluation.md</code>.</p>
-      </article>
-
-      <article class="readout">
-        <p class="readout__label">Identity</p>
-        <p class="readout__fig">0.355<span class="readout__unit">fitted threshold &tau;</span></p>
-        <ul class="readout__rows">
-          <li><span>Open-set AUROC</span><b>0.998</b></li>
-          <li><span>ImageNet control</span><b>0.534</b></li>
-          <li><span>Closed-set rank&#8209;1</span><b>99.58%</b></li>
-        </ul>
-        <p class="readout__note">The control is the load-bearing row. Untrained embeddings
-          scoring 0.534 through the identical protocol is what rules out a protocol bug
-          that would have flattered anything.</p>
-      </article>
-
-      <article class="readout">
-        <p class="readout__label">Decline detection</p>
-        <p class="readout__fig">5.07<span class="readout__unit">false alerts / 100 days</span></p>
-        <ul class="readout__rows">
-          <li><span>Recall</span><b>24 / 24</b></li>
-          <li><span>Median latency</span><b>4 days</b></li>
-          <li><span>Started at</span><b>67.66</b></li>
-        </ul>
-        <p class="readout__note">Five separate defects sat between 67.66 and 5.07, each
-          found by evaluation rather than by reading the code.</p>
-      </article>
-
-      <article class="readout">
-        <p class="readout__label">Report faithfulness</p>
-        <p class="readout__fig">3.2%<span class="readout__unit">hallucination rate</span></p>
-        <ul class="readout__rows">
-          <li><span>Claims checked</span><b>1,120</b></li>
-          <li><span>Grammar&#8209;constrained</span><b>2.8%</b></li>
-          <li><span>Unconstrained</span><b>3.7%</b></li>
-        </ul>
-        <p class="readout__note">Every claim withheld before a caregiver reads it. Field
-          misquotes went from ~40 per run to zero by giving the model a filled template to
-          copy from; the residual is prose that never quotes the figure, which only C5 can
-          see. The grammar&rsquo;s p&#8209;value for faithfulness is 0.40 &mdash; its value
-          is a parseability guarantee, not a truthfulness one.</p>
-      </article>
-    </div>
-  </div>
-</section>
-
-<section class="band band--well" id="calibration">
-  <div class="band__inner">
-    <header class="band__head">
-      <p class="eyebrow">Calibration</p>
-      <h2 class="h2">A metric nobody tried to break is a decoration.</h2>
-      <p class="lede">Before the verifier was pointed at a real model it was pointed at two
-        generators whose answers were already known: one that reports the evidence
-        honestly, and one that corrupts a controlled fraction of its claims. The honest one
-        has to score zero, and the corrupted one has to track its own injection rate.</p>
-    </header>
-
-    <div class="calib">
-      <figure class="fig" id="fig-anchors">
-        <figcaption class="fig__cap">
-          <span class="fig__title">Measured failure rate against injected corruption</span>
-          <span class="fig__sub">696 claims per condition &middot; 116 simulated resident-days</span>
-        </figcaption>
-        <div class="fig__plot" id="anchors-plot"></div>
-        <p class="fig__legend">
-          <span class="key"><span class="key__mark key__mark--ring"></span>injected</span>
-          <span class="key"><span class="key__mark key__mark--dot"></span>measured</span>
-        </p>
-        <p class="fig__note">Zero on honest output means the verifier has no false
-          positives, so every rate below it is real. Tracking the injection rate means it
-          does not saturate, so it can tell two models apart.</p>
-      </figure>
-
-      <div class="finding">
-        <p class="eyebrow eyebrow--bare">The result we did not want</p>
-        <h3 class="finding__head">Grammar-constrained decoding did not reduce hallucination.</h3>
-        <p class="finding__body">Forcing the model to emit JSON that matches the claim
-          schema is the standard fix. Measured over ~550 claims per arm it made no
-          difference: <b>2.8%</b> constrained against <b>3.7%</b> free,
-          <span class="mono">z&nbsp;=&nbsp;0.84</span>,
-          <span class="mono">p&nbsp;=&nbsp;0.40</span>, with confidence intervals
-          overlapping across most of their range &mdash; at <b>6.4&times;</b> the decoding
-          time.</p>
-        <p class="finding__body">What the grammar does buy is a guarantee: it
-          <em>cannot</em> emit a claim that fails the schema, where free decoding merely
-          happened not to. In a caregiver-facing system that is worth paying for. It is not
-          a faithfulness result, and it is not written up as one.</p>
-        <p class="finding__body finding__body--last">An earlier run put the constrained arm
-          at 39.9%. That figure was our own prompt: the model was never shown the shape of
-          the JSON it was being scored against, so it lost claims for guessing an envelope
-          nobody had described to it.</p>
-      </div>
-    </div>
-
-    <figure class="fig fig--wide" id="fig-lodo">
-      <figcaption class="fig__cap">
-        <span class="fig__title">Fall detection scored separately on four training sources</span>
-        <span class="fig__sub">source-stratified &middot; AUROC &middot; 3,064 windows across four corpora</span>
-      </figcaption>
-      <div class="fig__plot" id="lodo-plot"></div>
-      <p class="fig__note">One binary checkpoint, trained across all four fall corpora,
-        scored on each source&rsquo;s shards &mdash; which include training windows.
-        Unseen&#8209;corpus transfer and the fitted operating point&rsquo;s behaviour off
-        its own validation set are not measured here. Falls in these datasets are acted,
-        and camera geometry differs per site; the honest reading is that a new home needs
-        its own calibration, not that the model generalises.</p>
-    </figure>
-  </div>
-</section>
-
-<section class="band" id="status">
-  <div class="band__inner">
-    <p class="eyebrow">Status</p>
-    <h2 class="h2">Still being built.</h2>
-    <p class="lede">Final-year engineering project, in active development. The numbers on
-      this page come from completed offline GPU sessions; the work below is what is
-      currently running.</p>
-    <ul class="todo">
-      <li><span class="todo__state">next</span> Wiring object context into the classes
-        skeletons cannot separate &mdash; medication, phone use, watching television.</li>
-      <li><span class="todo__state">next</span> Staged-to-wild fall transfer on unscripted
-        footage, the one protocol not yet measured.</li>
-      <li><span class="todo__state todo__state--done">done</span> Training on the activity
-        streams completed at its patience limits; segment-level accuracy after temporal
-        smoothing is measured and in <code>results/evaluation.md</code>.</li>
-    </ul>
-    <p class="lede lede--close">The replay report runs the verifier's arithmetic on stored
-      evidence. Live uploads use the connected backend; the development backend returns
-      synthetic fixtures. Training protocols and evaluation commands are documented in
-      the repository.</p>
-    <p class="cta">
-      <a class="btn" href="https://github.com/PARTHG0106/BehaviorSense-PromptWars">Read the code</a>
-      <span class="cta__note">Backend, agents, notebooks and automated checks</span>
-    </p>
-  </div>
-</section>
-
+    <section class="care-card" aria-labelledby="reminder-heading">
+      <div class="care-section-head"><h2 id="reminder-heading" data-care-text="reminders">Email reminders</h2><button type="button" id="check-reminders" class="secondary" data-care-text="checkReminders">Check due reminders</button></div>
+      <p id="reminder-mode" class="care-notice"></p>
+      <div id="reminder-list" class="care-list"></div>
+    </section>
+    <section class="care-card" aria-labelledby="history-heading">
+      <h2 id="history-heading" data-care-text="history">Caregiver confirmation history</h2>
+      <div id="care-history"></div>
+    </section>
+  </section>
 </main>
-
-<footer class="foot">
-  <div class="foot__inner">
-    <p class="foot__mark">BehaviorSense<span>Identity-aware multi-agent behaviour monitoring and explainable healthcare assistance</span></p>
-    <p class="foot__meta">Research prototype. No claim of diagnostic validity, and not a
-      medical device. Evaluated on Charades, Toyota Smarthome, Le2i, URFD, CAUCAFall, GMDCSA and
-      MSMT17; derived datasets are not redistributed.</p>
-  </div>
-</footer>
-
-<!-- THE VERSION KEY. Browsers cache ES modules hard - measured twice on this project, the
-     second time as "39 people tracked" over a report whose backend had already been updated, and
-     a withheld-deviations note that never rendered. A query string on the ENTRY script busts
-     nothing, because the modules it imports are cached under their own URLs. An import map
-     fixes the shape: every module resolves through ONE block, so bumping the version below
-     re-fetches all of them the moment this document revalidates (documents revalidate; modules
-     do not). The STYLESHEET links carry the same key for the same reason - components.css is
-     cached just as hard as stages.js, and an unstyled enrol field that only a hard refresh
-     fixes is the identical failure. CHANGE THIS whenever any file in scripts/ OR styles/
-     changes. -->
-<script type="importmap">
-{
-  "imports": {
-    "bs/api": "./scripts/api.js?v=2026-10-07b",
-    "bs/caregiver": "./scripts/caregiver.js?v=2026-10-07b",
-    "bs/charts": "./scripts/charts.js?v=2026-10-07b",
-    "bs/dock": "./scripts/dock.js?v=2026-10-07b",
-    "bs/fixtures": "./scripts/fixtures.js?v=2026-10-07b",
-    "bs/i18n": "./scripts/i18n.js?v=2026-10-07b",
-    "bs/ledger": "./scripts/ledger.js?v=2026-10-07b",
-    "bs/main": "./scripts/main.js?v=2026-10-07b",
-    "bs/overlay": "./scripts/overlay.js?v=2026-10-07b",
-    "bs/report-data": "./scripts/report-data.js?v=2026-10-07b",
-    "bs/stages": "./scripts/stages.js?v=2026-10-07b",
-    "bs/translation-queue": "./scripts/translation-queue.js?v=2026-10-07b",
-    "bs/upload": "./scripts/upload.js?v=2026-10-07b",
-    "bs/verifier": "./scripts/verifier.js?v=2026-10-07b",
-    "./scripts/clip-batch.js": "./scripts/clip-batch.js?v=2026-10-07b",
-    "./scripts/report-data.js": "./scripts/report-data.js?v=2026-10-07b",
-    "./scripts/i18n.js": "./scripts/i18n.js?v=2026-10-07b",
-    "./scripts/fixtures.js": "./scripts/fixtures.js?v=2026-10-07b"
-  }
-}
-</script>
-<script type="module" src="scripts/main.js?v=2026-10-07b"></script>
-<script type="module" src="scripts/accessibility.js?v=2026-11-15"></script>
+<footer class="care-footer"><p data-care-text="footer">Care records stay in your care server's private database. Medication confirmations are entered by caregivers.</p><a href="https://github.com/PARTHG0106/BehaviorSense-PromptWars">Project code and setup</a></footer>
+<script type="module" src="scripts/care.js"></script>
 </body>
 </html>

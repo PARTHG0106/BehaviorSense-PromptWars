@@ -14,7 +14,7 @@ The care platform is designed for caregivers and older users who may need larger
 
 ## Verification
 
-An axe-core audit using WCAG 2 A/AA, 2.1 A/AA and 2.2 AA tags reported zero violations in six views. Functional browser checks covered keyboard skip navigation, explicit intake and its history, language switching, text enlargement, high contrast, 390-pixel mobile view and 320-pixel reflow. No JavaScript errors were observed. See [the audit record](../results/accessibility_20261115.md).
+An axe-core audit using WCAG 2 A/AA, 2.1 A/AA and 2.2 AA tags reported zero violations in six views. Functional browser checks covered keyboard skip navigation, taken/skipped confirmations and notes, daily counts, medication creation, appointment attendance, printing, page navigation, language switching, text enlargement, high contrast, 390-pixel mobile view and 320-pixel reflow. No JavaScript errors were observed. See [the audit record](../results/accessibility_20261115.md).
 
 Automated tests do not establish complete WCAG conformance. Live assistive-technology review with older users remains future work. Care information is entered by caregivers; UI accessibility and arithmetic evidence checks do not establish clinical accuracy.
 

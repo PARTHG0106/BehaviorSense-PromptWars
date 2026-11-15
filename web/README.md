@@ -11,12 +11,13 @@ The care platform uses a private, Git-ignored SQLite database. Its interface sup
 
 The activity/report interface remains available at `http://127.0.0.1:8787/activity` and connects to the reporting bridge at `http://127.0.0.1:8899`.
 
-The front end for BehaviorSense. No build step, no dependencies, no framework — open it with
-any static server and it runs.
+The care homepage is `index.html`, served together with its private API by the care server.
+The optional activity interface is `activity.html`. It uses static HTML, CSS and JavaScript
+with no build step and can also be opened with a static server.
 
 ```bash
 python -m http.server 5173 --directory web
-# then http://localhost:5173
+# then http://localhost:5173/activity.html
 ```
 
 ## What it is
@@ -330,7 +331,8 @@ consistency check; it does not provide authentication or validate arbitrary HTML
 ## Files
 
 ```
-index.html            structure and all copy
+index.html            care homepage and labelled care forms
+activity.html         activity/report structure and copy
 styles/tokens.css     colour, type and spacing tokens, with the reasoning behind them
 styles/base.css       reset, type roles, the sticky rail, connection states
 styles/components.css ledger, checks, stages, readouts, figures, dock, footage, close
@@ -348,7 +350,7 @@ local_backend.py      Kaggle bridge, local behavior/reporting, and gallery persi
 dev_backend.py        a stand-in backend for developing the live path
 ```
 
-When changing scripts or styles, update the version strings in `index.html` so the import map
+When changing activity scripts or styles, update the version strings in `activity.html` so the import map
 and stylesheet links request the new files. A hard reload (`Ctrl`/`Cmd`+`Shift`+`R`) also clears
 stale module responses during development.
 

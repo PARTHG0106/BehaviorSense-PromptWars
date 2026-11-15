@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if __name__ == "__main__":
     result = subprocess.run(
         ["node", "--test", "--test-reporter=tap", "tests/test_caregiver.mjs", "tests/test_report_data.mjs",
-         "tests/test_clip_batch.mjs", "tests/test_upload_transport.mjs"],
+         "tests/test_clip_batch.mjs", "tests/test_upload_transport.mjs", "tests/test_care_summary.mjs"],
         cwd=ROOT, text=True, encoding="utf-8", stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         timeout=60,
     )

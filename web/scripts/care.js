@@ -1,4 +1,5 @@
 import {mountAccessibility} from "./accessibility.js";
+import {summarizeDoses} from "./care-summary.js";
 
 const $=id=>document.getElementById(id);
 const escape=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -16,6 +17,17 @@ const WORDS={
  profileId:["Profile ID","प्रोफ़ाइल आईडी","प्रोफाइल आयडी"],accessCode:["Access code","पहुँच कोड","प्रवेश कोड"],
  joinHelp:["Ask a trusted care team member for the profile ID and access code.","भरोसेमंद देखभाल सदस्य से प्रोफ़ाइल आईडी और पहुँच कोड लें।","विश्वासू काळजी संघ सदस्याकडून प्रोफाइल आयडी आणि प्रवेश कोड घ्या."],
  demo:["Try a fictional care profile","काल्पनिक प्रोफ़ाइल आज़माएँ","काल्पनिक प्रोफाइल वापरून पहा"],
+ demoGuide:["Try the care workflow in two minutes","दो मिनट में देखभाल योजना आज़माएँ","दोन मिनिटांत काळजी योजना वापरून पहा"],
+ demoStep1:["Choose “Try a fictional care profile” below. It creates a private example with a dose due now and an appointment.","नीचे काल्पनिक प्रोफ़ाइल का विकल्प चुनें। अभी की दवा और एक मुलाकात का निजी उदाहरण बनेगा।","खाली काल्पनिक प्रोफाइलचा पर्याय निवडा. आताची औषधाची वेळ आणि एका भेटीचे खाजगी उदाहरण तयार होईल."],
+ demoStep2:["Record a taken or skipped confirmation, with an optional note. Check today's counts and the history.","दवा ली या नहीं ली की पुष्टि और चाहें तो टिप्पणी दर्ज करें। आज की गिनती और इतिहास देखें।","औषध घेतले किंवा वगळले याची पुष्टी आणि हवी असल्यास नोंद करा. आजची संख्या आणि इतिहास पहा."],
+ demoStep3:["Add or edit a prescribed medication, then update the doctor appointment.","निर्धारित दवा जोड़ें या बदलें, फिर डॉक्टर की मुलाकात बदलें।","लिहून दिलेले औषध जोडा किंवा बदला, नंतर डॉक्टरांची भेट अद्ययावत करा."],
+ demoStep4:["Review email reminder previews, switch languages, and try the large-text or high-contrast controls.","ईमेल स्मरण का पूर्वावलोकन देखें, भाषा बदलें और बड़े अक्षर या अधिक कंट्रास्ट आज़माएँ।","ईमेल स्मरणपत्रांचे पूर्वावलोकन पहा, भाषा बदला आणि मोठा मजकूर किंवा जास्त रंग विरोध वापरून पहा."],
+ demoStep5:["Print the care plan for a visit. Open Activity observations to explore the optional evidence-checked video reports.","मुलाकात के लिए योजना प्रिंट करें। वीडियो रिपोर्ट के लिए गतिविधि अवलोकन खोलें।","भेटीसाठी काळजी योजना छापा. व्हिडिओ अहवाल पाहण्यासाठी हालचालींचे निरीक्षण उघडा."],
+ printPlan:["Print care plan","देखभाल योजना प्रिंट करें","काळजी योजना छापा"],
+ confirmedTotal:["caregiver confirmations out of today's scheduled doses","आज की निर्धारित दवाओं में देखभाल की पुष्टि","आजच्या नियोजित औषधांपैकी काळजीवाहकांच्या पुष्टी"],
+ summaryHelp:["Counts include later doses today. Pending or overdue means no confirmation is recorded.","गिनती में आज की बाद की दवाएँ भी हैं। लंबित या देरी का मतलब पुष्टि दर्ज नहीं है।","आजच्या पुढील औषधांचाही संख्येत समावेश आहे. प्रलंबित किंवा उशीर म्हणजे पुष्टी नोंदवलेली नाही."],
+ confirmationNote:["Optional confirmation note","पुष्टि की टिप्पणी (वैकल्पिक)","पुष्टीची नोंद (ऐच्छिक)"],
+ note:["Caregiver note","देखभाल की टिप्पणी","काळजीवाहकाची नोंद"],
  refresh:["Refresh plan","योजना फिर लोड करें","योजना पुन्हा उघडा"],logout:["Sign out","साइन आउट","बाहेर पडा"],
  saveAccess:["Save this access information","यह पहुँच जानकारी सुरक्षित रखें","प्रवेश माहिती जतन करा"],
  shareHelp:["Share these details privately with trusted caregivers. The code is shown only when the profile is created.","जानकारी केवल भरोसेमंद देखभाल सदस्यों से निजी रूप में साझा करें। कोड प्रोफ़ाइल बनाते समय दिखता है।","ही माहिती विश्वासू काळजीवाहकांशी खाजगीपणे शेअर करा. कोड प्रोफाइल तयार करताना दिसतो."],
@@ -69,15 +81,19 @@ function render(){
  $("profile-heading").textContent=`${p.name} · ${t("carePlan")}`;$("profile-meta").textContent=`${t("profileId")}: ${p.id} · ${p.timezone} · ${session.caregiver}`;
  if(!state.profileDirty){$("profile-name").value=p.name;$("profile-email").value=p.email;$("profile-allergies").value=p.allergies;$("profile-note").value=p.care_note;$("profile-zone").value=p.timezone;$("profile-reminders").checked=p.reminders_enabled;state.profileFormVersion=p.version;}
  $("care-day").textContent=`${localParts().day} · ${p.timezone}`;
+ const counts=summarizeDoses(state.doses);
+ $("daily-confirmations").innerHTML=`<p><strong>${counts.confirmed} / ${counts.scheduled}</strong> ${escape(t("confirmedTotal"))}</p><dl>${["taken","skipped","pending","overdue"].map(key=>`<div><dt>${escape(t(key))}</dt><dd data-dose-count="${key}">${counts[key]}</dd></div>`).join("")}</dl><p class="care-help">${escape(t("summaryHelp"))}</p>`;
  $("dose-list").innerHTML=state.doses.length?state.doses.map(d=>{
   const confirmed=["taken","skipped"].includes(d.status),early=new Date(d.due_at).getTime()>Date.now()+900000;
-  return `<article class="care-item"><div><h3>${escape(d.name)}</h3><p>${escape(d.dose)} · ${escape(d.time)} (${escape(p.timezone)})</p><p>${escape(d.instructions)}</p>${badge(d.status)}${confirmed?`<p>${escape(t("reportedBy"))}: ${escape(d.caregiver)} · ${escape(when(d.confirmed_at))}</p>`:""}${early?`<p class="care-help">${escape(t("dueLater"))}</p>`:""}</div>${!confirmed?`<div class="care-actions"><button type="button" data-action="taken" data-id="${d.medication_id}" data-time="${d.time}" data-day="${d.day}" ${early?"disabled":""} aria-label="${escape(t("confirmTaken"))}: ${escape(d.name)}, ${d.time}">${escape(t("confirmTaken"))}</button><button type="button" class="secondary" data-action="skipped" data-id="${d.medication_id}" data-time="${d.time}" data-day="${d.day}" ${early?"disabled":""} aria-label="${escape(t("confirmSkipped"))}: ${escape(d.name)}, ${d.time}">${escape(t("confirmSkipped"))}</button></div>`:""}</article>`;
+  const noteId=`dose-note-${d.medication_id}-${d.time.replace(":","")}`;
+  const note=confirmed&&d.note?`<p>${escape(t("note"))}: ${escape(d.note)}</p>`:!confirmed&&!early?`<label for="${noteId}">${escape(t("confirmationNote"))}: ${escape(d.name)}, ${escape(d.time)}</label><textarea id="${noteId}" data-dose-note maxlength="600" rows="2"></textarea>`:"";
+  return `<article class="care-item"><div><h3>${escape(d.name)}</h3><p>${escape(d.dose)} · ${escape(d.time)} (${escape(p.timezone)})</p><p>${escape(d.instructions)}</p>${badge(d.status)}${confirmed?`<p>${escape(t("reportedBy"))}: ${escape(d.caregiver)} · ${escape(when(d.confirmed_at))}</p>`:""}${note}${early?`<p class="care-help">${escape(t("dueLater"))}</p>`:""}</div>${!confirmed?`<div class="care-actions"><button type="button" data-action="taken" data-id="${d.medication_id}" data-time="${d.time}" data-day="${d.day}" ${early?"disabled":""} aria-label="${escape(t("confirmTaken"))}: ${escape(d.name)}, ${d.time}">${escape(t("confirmTaken"))}</button><button type="button" class="secondary" data-action="skipped" data-id="${d.medication_id}" data-time="${d.time}" data-day="${d.day}" ${early?"disabled":""} aria-label="${escape(t("confirmSkipped"))}: ${escape(d.name)}, ${d.time}">${escape(t("confirmSkipped"))}</button></div>`:""}</article>`;
  }).join(""):`<p class="empty">${escape(t("noDoses"))}</p>`;
  $("medication-list").innerHTML=state.medications.length?state.medications.map(m=>`<article class="care-item"><div><h3>${escape(m.name)}</h3><p>${escape(m.dose)} · ${escape(m.times.join(", "))}</p><p>${escape(m.instructions)}</p>${!m.active?badge("inactive"):""}</div><div class="care-actions"><button type="button" class="secondary" data-action="edit-medication" data-id="${m.id}" aria-label="${escape(t("edit"))}: ${escape(m.name)}">${escape(t("edit"))}</button>${m.active?`<button type="button" class="secondary" data-action="stop-medication" data-id="${m.id}" aria-label="${escape(t("stop"))}: ${escape(m.name)}">${escape(t("stop"))}</button>`:""}</div></article>`).join(""):`<p class="empty">${escape(t("noMedications"))}</p>`;
  $("appointment-list").innerHTML=state.appointments.length?state.appointments.map(a=>`<article class="care-item"><div><h3>${escape(a.title)}</h3><p>${escape(a.doctor)} · ${escape(when(a.due_at))}</p><p>${escape(a.location)}</p><p>${escape(a.notes)}</p>${badge(a.status)}</div><div class="care-actions"><button type="button" class="secondary" data-action="edit-appointment" data-id="${a.id}" aria-label="${escape(t("edit"))}: ${escape(a.title)}">${escape(t("edit"))}</button>${a.status==="scheduled"?`<button type="button" data-action="attended" data-id="${a.id}">${escape(t("markAttended"))}</button><button type="button" class="secondary" data-action="cancel-appointment" data-id="${a.id}">${escape(t("cancelAppointment"))}</button>`:""}</div></article>`).join(""):`<p class="empty">${escape(t("noAppointments"))}</p>`;
  $("reminder-mode").textContent=t(state.mode==="smtp"?"smtpHelp":"previewHelp");
  $("reminder-list").innerHTML=state.outbox.length?state.outbox.map(m=>`<article class="care-item"><div><h3>${escape(m.subject)}</h3><p>${escape(m.recipient)} · ${escape(when(m.created_at))}</p>${badge(m.status)}<details><summary>${escape(t("preview"))}</summary><p>${escape(m.body).replace(/\n/g,"<br>")}</p>${m.error?`<p>${escape(m.error)}</p>`:""}</details></div></article>`).join(""):`<p class="empty">${escape(t("noReminders"))}</p>`;
- $("care-history").innerHTML=state.history.length?`<div class="care-table-wrap" tabindex="0" role="region" aria-label="${escape(t("history"))}"><table><caption>${escape(t("history"))}</caption><thead><tr>${["day","medication","dose","status","reportedBy","recordedAt"].map(key=>`<th scope="col">${escape(t(key))}</th>`).join("")}</tr></thead><tbody>${state.history.map(r=>`<tr><td>${escape(r.day)} ${escape(r.time)}</td><td>${escape(r.medication_name)}</td><td>${escape(r.dose)}</td><td>${escape(t(r.status))}</td><td>${escape(r.caregiver)}</td><td>${escape(when(r.confirmed_at))}</td></tr>`).join("")}</tbody></table></div>`:`<p class="empty">${escape(t("noHistory"))}</p>`;
+ $("care-history").innerHTML=state.history.length?`<div class="care-table-wrap" tabindex="0" role="region" aria-label="${escape(t("history"))}"><table><caption>${escape(t("history"))}</caption><thead><tr>${["day","medication","dose","status","reportedBy","recordedAt","note"].map(key=>`<th scope="col">${escape(t(key))}</th>`).join("")}</tr></thead><tbody>${state.history.map(r=>`<tr><td>${escape(r.day)} ${escape(r.time)}</td><td>${escape(r.medication_name)}</td><td>${escape(r.dose)}</td><td>${escape(t(r.status))}</td><td>${escape(r.caregiver)}</td><td>${escape(when(r.confirmed_at))}</td><td>${escape(r.note)}</td></tr>`).join("")}</tbody></table></div>`:`<p class="empty">${escape(t("noHistory"))}</p>`;
  if(!state.medEdit)$("medication-start").value=localParts().day;
  translations();
 }
@@ -100,6 +116,7 @@ bindForm("appointment-form","appointment-error",async()=>{await api(`appointment
 $("cancel-medication-edit").onclick=()=>{state.medEdit=null;$("medication-form").reset();$("medication-start").value=localParts().day;$("medication-editor").open=false;};
 $("cancel-appointment-edit").onclick=()=>{state.appointmentEdit=null;$("appointment-form").reset();$("appointment-editor").open=false;};
 $("refresh-plan").onclick=()=>load().then(()=>announce(t("saved"))).catch(e=>announce(e.message,true));
+$("print-plan").onclick=()=>window.print();
 $("care-logout").onclick=async()=>{try{await api("logout","POST")}finally{session=null;sessionStorage.removeItem("behaviorsense.care-session");state.profile=null;$("share-code").textContent="";$("share-profile").hidden=true;$("care-workspace").hidden=true;$("care-auth").hidden=false;announce(t("signedOut"));$("join-id").focus();}};
 $("copy-access").onclick=async()=>{try{await navigator.clipboard.writeText(`${t("profileId")}: ${$("share-id").textContent}\n${t("accessCode")}: ${$("share-code").textContent}`);announce(t("copied"));}catch{announce("Select and copy the profile ID and access code shown above.",true);}};
 $("hide-access").onclick=()=>{$("share-code").textContent="";$("share-profile").hidden=true;};
@@ -113,7 +130,7 @@ $("care-workspace").addEventListener("click",async event=>{
  if(action==="edit-appointment"){editAppointment(state.appointments.find(a=>a.id===id));return;}
  button.disabled=true;
  try{
-  if(["taken","skipped"].includes(action))await api(`medications/${id}/confirm`,"POST",{day,time,status:action});
+  if(["taken","skipped"].includes(action))await api(`medications/${id}/confirm`,"POST",{day,time,status:action,note:button.closest(".care-item").querySelector("[data-dose-note]")?.value.trim()||""});
   if(action==="stop-medication")await api(`medications/${id}`,"DELETE");
   if(action==="cancel-appointment")await api(`appointments/${id}`,"DELETE");
   if(action==="attended"){const a=state.appointments.find(a=>a.id===id);await api(`appointments/${id}`,"PUT",{title:a.title,doctor:a.doctor,local_at:a.local_at,location:a.location,notes:a.notes,status:"attended",version:a.version});}
@@ -125,7 +142,7 @@ $("care-demo").onclick=async()=>{
  try{
   const health=await api("health");
   saveSession(await api("profiles","POST",{name:"Demo Resident",caregiver:"Demo Caregiver",email:health.mail_mode==="preview"?"care-demo@example.invalid":"",reminders_enabled:health.mail_mode==="preview",allergies:"Fictional example — no real patient information.",care_note:"This profile is a demonstration. Enter clinician-provided details for an actual care plan."}));
-  const upcoming=localParts(new Date(Date.now()+5*60000));
+  const upcoming=localParts();
   await api("medications","POST",{name:"Prescribed medicine (demo)",dose:"Clinician-provided dose (demo)",instructions:"Fictional example for the care diary.",times:[upcoming.time],start_day:upcoming.day,active:true});
   const visit=localParts(new Date(Date.now()+45*60000));
   await api("appointments","POST",{title:"Care review (demo)",doctor:"Demo care professional",local_at:`${visit.day}T${visit.time}`,location:"Fictional example",notes:"No clinic booking is made.",status:"scheduled"});

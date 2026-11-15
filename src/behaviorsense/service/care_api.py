@@ -195,7 +195,7 @@ def create_care_app(store: CareStore, web: Path, mail: MailSettings | None = Non
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "same-origin"
         response.headers["X-Frame-Options"] = "DENY"
-        if request.url.path in {"/", "/care.html"}:
+        if request.url.path in {"/", "/index.html", "/care.html"}:
             response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
         if request.url.path.startswith("/api/care/"):
             response.headers["Cache-Control"] = "no-store"
@@ -284,14 +284,15 @@ def create_care_app(store: CareStore, web: Path, mail: MailSettings | None = Non
         return {"queued": inserted, "mode": mail.mode, "messages": store.outbox(who["profile_id"])}
 
     @app.get("/")
+    @app.get("/index.html")
     @app.get("/care.html")
     def home():
-        return FileResponse(web / "care.html")
+        return FileResponse(web / "index.html")
 
     @app.get("/activity")
-    @app.get("/index.html")
+    @app.get("/activity.html")
     def activity():
-        return FileResponse(web / "index.html")
+        return FileResponse(web / "activity.html")
 
     app.mount("/styles", StaticFiles(directory=web / "styles"), name="styles")
     app.mount("/scripts", StaticFiles(directory=web / "scripts"), name="scripts")

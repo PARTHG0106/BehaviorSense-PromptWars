@@ -224,6 +224,33 @@ class CareTests(unittest.TestCase):
         self.assertEqual(self.client.get("/care.html").status_code, 200)
         self.assertEqual(self.client.get("/activity").status_code, 200)
 
+    def test_home_aliases_open_care_and_activity_aliases_open_observations(self):
+        for path in ("/", "/index.html", "/care.html"):
+            result = self.client.get(path)
+            self.assertEqual(result.status_code, 200, path)
+            self.assertIn('id="create-profile"', result.text)
+            self.assertIn('id="daily-confirmations"', result.text)
+            self.assertIn("script-src 'self'", result.headers["content-security-policy"])
+        for path in ("/activity", "/activity.html"):
+            result = self.client.get(path)
+            self.assertEqual(result.status_code, 200, path)
+            self.assertIn('data-i18n="dailyReport"', result.text)
+            self.assertNotIn('id="create-profile"', result.text)
+
+    def test_confirmation_notes_are_private_and_survive_repeated_requests(self):
+        a, b = self.profile(), self.profile("Other resident")
+        med = self.medication(a)
+        path = f"/api/care/medications/{med['id']}/confirm"
+        values = {"day": "2026-11-15", "time": "09:00", "status": "skipped", "note": "Reported by caregiver: declined"}
+        result = self.client.post(path, headers=self.headers(a), json=values)
+        self.assertEqual(result.status_code, 200, result.text)
+        self.assertEqual(result.json()["note"], values["note"])
+        self.client.post(path, headers=self.headers(a), json=values | {"note": "Replacement"})
+        history = self.client.get("/api/care/history", headers=self.headers(a)).json()
+        self.assertEqual(len(history), 1)
+        self.assertEqual(history[0]["note"], values["note"])
+        self.assertEqual(self.client.get("/api/care/history", headers=self.headers(b)).json(), [])
+
     def test_preview_transport_never_connects_and_live_transport_requires_tls(self):
         with patch.dict(os.environ, {"BS_MAIL_MODE": "preview", "BS_SMTP_PORT": "invalid"}), patch("smtplib.SMTP") as smtp:
             settings = MailSettings.from_environment()

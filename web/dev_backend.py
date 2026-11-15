@@ -1,7 +1,7 @@
 """A stand-in for the Kaggle backend, so the live path can be developed without a GPU.
 
-`notebooks/05_serve_inference_online.ipynb` is the real thing: Qwen2.5-7B and the four ADL
-streams on a T4, behind a Cloudflare tunnel. Booking a GPU session to check that a banner
+`notebooks/notebookef04f4f9bb (1).ipynb` runs the saved RGB hybrid on T4 x2,
+behind a Cloudflare tunnel. The local bridge supplies hosted reporting. Booking a GPU session to check that a banner
 renders is absurd, so this serves the same routes with the same shapes and no model at all.
 
 It is deliberately NOT importable from `src/` and does not pretend to classify anything. The
